@@ -97,9 +97,12 @@ const fmtDateLong = (s) => {
   return `${d.getUTCFullYear()}.${String(d.getUTCMonth() + 1).padStart(2, "0")}.${String(d.getUTCDate()).padStart(2, "0")}`;
 };
 const daysAgo = (s) => {
-  const d = excelToDate(s);
-  if (!d) return null;
-  const today = new Date(Date.UTC(2026, 4, 6)); // 2026-05-06 (current date per system)
+  if (!s || s === "미컨택") return null;
+  let d;
+  if (typeof s === "number") { d = excelToDate(s); }
+  else if (typeof s === "string" && s.length >= 7) { d = new Date(s + "T00:00:00Z"); }
+  if (!d || isNaN(d)) return null;
+  const today = new Date();
   return Math.floor((today - d) / 86400000);
 };
 
@@ -416,9 +419,13 @@ function Toast({ msg, onDone }) {
   );
 }
 
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
 function todayExcelSerial() {
-  const today = new Date(Date.UTC(2026, 4, 6));
-  return Math.floor((today - new Date(Date.UTC(1899, 11, 30))) / 86400000);
+  const today = new Date();
+  const utc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.floor((utc - Date.UTC(1899, 11, 30)) / 86400000);
 }
 
 function NewInboundModal({ onClose, onSave }) {
@@ -428,9 +435,11 @@ function NewInboundModal({ onClose, onSave }) {
   });
   const submit = () => {
     if (!f.name) return alert("기업명을 입력해주세요");
+    const today = todayIso();
     onSave({
       month: `${new Date().getMonth() + 1}월`,
-      inflowDate: todayExcelSerial(), consultDate: todayExcelSerial(), meetingDate: "",
+      inflowDate: today, consultDate: today, meetingDate: "",
+      inflowYear: String(new Date().getFullYear()),
       ...f, employees: Number(f.employees) || 0,
     });
     onClose();
@@ -467,7 +476,7 @@ function NewOutboundModal({ onClose, onSave }) {
   });
   const submit = () => {
     if (!f.name) return alert("기업명을 입력해주세요");
-    onSave({ ...f, employees: f.employees || "-", lastUpdate: todayExcelSerial(), meetingDate: "" });
+    onSave({ ...f, employees: f.employees || "-", lastUpdate: todayIso(), meetingDate: "" });
     onClose();
   };
   return (
@@ -505,7 +514,7 @@ function NewDealModal({ onClose, onSave }) {
     const monthly = Number(f.monthly) || 0;
     onSave({
       ...f,
-      date: todayExcelSerial(),
+      date: todayIso(),
       employees: Number(f.employees) || 0,
       introFee: Number(f.introFee) || 0,
       monthly,
@@ -584,8 +593,9 @@ function QuickActionModal({ onClose, onPick }) {
   );
 }
 
-function EditInboundModal({ item, onClose, onSave }) {
+function EditInboundModal({ item, onClose, onSave, onDelete }) {
   const [f, setF] = useStateM({ ...item });
+  const [confirmDelete, setConfirmDelete] = useStateM(false);
   const submit = () => {
     if (!f.name) return alert("기업명을 입력해주세요");
     onSave({ ...f, employees: Number(f.employees) || 0, updatedAt: new Date().toISOString().slice(0, 10) });
@@ -609,15 +619,23 @@ function EditInboundModal({ item, onClose, onSave }) {
       </div>
       <Field label="영업 내용"><Textarea value={f.detail || ""} onChange={e => setF({ ...f, detail: e.target.value })} /></Field>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingTop: 14, borderTop: "1px solid var(--line-soft)" }}>
-        <span style={{ fontSize: 11, color: "var(--ink-4)" }}>저장 시 업데이트일 자동 갱신</span>
+        {confirmDelete
+          ? <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 12, color: "var(--neg)", fontWeight: 500 }}>정말 삭제할까요?</span>
+              <button onClick={() => { onDelete(item); onClose(); }} style={{ background: "var(--neg)", color: "#fff", border: "none", padding: "7px 12px", borderRadius: 7, fontWeight: 600, cursor: "pointer", fontSize: 12 }}>삭제 확인</button>
+              <GhostBtn onClick={() => setConfirmDelete(false)} style={{ padding: "7px 12px", fontSize: 12 }}>취소</GhostBtn>
+            </div>
+          : <button onClick={() => setConfirmDelete(true)} style={{ background: "transparent", color: "var(--neg)", border: "1px solid var(--neg)", padding: "7px 12px", borderRadius: 7, fontWeight: 500, cursor: "pointer", fontSize: 12 }}>삭제</button>
+        }
         <div style={{ display: "flex", gap: 8 }}><GhostBtn onClick={onClose}>취소</GhostBtn><PrimaryBtn onClick={submit}>저장</PrimaryBtn></div>
       </div>
     </Modal>
   );
 }
 
-function EditOutboundModal({ item, onClose, onSave }) {
+function EditOutboundModal({ item, onClose, onSave, onDelete }) {
   const [f, setF] = useStateM({ ...item });
+  const [confirmDelete, setConfirmDelete] = useStateM(false);
   const submit = () => {
     if (!f.name) return alert("기업명을 입력해주세요");
     onSave({ ...f, lastUpdate: new Date().toISOString().slice(0, 10) });
@@ -638,7 +656,14 @@ function EditOutboundModal({ item, onClose, onSave }) {
       <Field label="현황"><Textarea value={f.detail || ""} onChange={e => setF({ ...f, detail: e.target.value })} /></Field>
       <Field label="비고"><Input value={f.note || ""} onChange={e => setF({ ...f, note: e.target.value })} /></Field>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingTop: 14, borderTop: "1px solid var(--line-soft)" }}>
-        <span style={{ fontSize: 11, color: "var(--ink-4)" }}>저장 시 마지막 업데이트일 자동 갱신</span>
+        {confirmDelete
+          ? <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 12, color: "var(--neg)", fontWeight: 500 }}>정말 삭제할까요?</span>
+              <button onClick={() => { onDelete(item); onClose(); }} style={{ background: "var(--neg)", color: "#fff", border: "none", padding: "7px 12px", borderRadius: 7, fontWeight: 600, cursor: "pointer", fontSize: 12 }}>삭제 확인</button>
+              <GhostBtn onClick={() => setConfirmDelete(false)} style={{ padding: "7px 12px", fontSize: 12 }}>취소</GhostBtn>
+            </div>
+          : <button onClick={() => setConfirmDelete(true)} style={{ background: "transparent", color: "var(--neg)", border: "1px solid var(--neg)", padding: "7px 12px", borderRadius: 7, fontWeight: 500, cursor: "pointer", fontSize: 12 }}>삭제</button>
+        }
         <div style={{ display: "flex", gap: 8 }}><GhostBtn onClick={onClose}>취소</GhostBtn><PrimaryBtn onClick={submit}>저장</PrimaryBtn></div>
       </div>
     </Modal>
@@ -1080,6 +1105,9 @@ function InboundView({ data, setData, onNew }) {
     const next = data.inbound.map(i => i.name === updated.name ? updated : i);
     setData({ ...data, inbound: next });
   };
+  const handleDeleteInbound = (item) => {
+    setData({ ...data, inbound: data.inbound.filter(i => i.name !== item.name) });
+  };
 
   const filtered = useMemoI(() => {
     const arr = data.inbound.filter(r => {
@@ -1180,7 +1208,7 @@ function InboundView({ data, setData, onNew }) {
 
       {view === "kanban" ? <Kanban items={filtered} setData={setData} data={data} onEdit={setEditItem} /> : <ListView items={filtered} sort={sort} setSort={setSort} onEdit={setEditItem} />}
 
-      {editItem && <EditInboundModal item={editItem} onClose={() => setEditItem(null)} onSave={(u) => { handleSaveEdit(u); setEditItem(null); }} />}
+      {editItem && <EditInboundModal item={editItem} onClose={() => setEditItem(null)} onSave={(u) => { handleSaveEdit(u); setEditItem(null); }} onDelete={(item) => { handleDeleteInbound(item); setEditItem(null); }} />}
     </div>
   );
 }
@@ -1373,6 +1401,9 @@ function OutboundView({ data, setData, onNew }) {
     const next = data.outbound.map(i => i.name === updated.name ? updated : i);
     setData({ ...data, outbound: next });
   };
+  const handleDeleteOutbound = (item) => {
+    setData({ ...data, outbound: data.outbound.filter(i => i.name !== item.name) });
+  };
 
   const inferStatus = (r) => {
     if (r.outboundStatus) return r.outboundStatus; // explicit status wins
@@ -1537,7 +1568,7 @@ function OutboundView({ data, setData, onNew }) {
           </Card>
         )
       }
-      {editItem && <EditOutboundModal item={editItem} onClose={() => setEditItem(null)} onSave={(u) => { handleSaveEdit(u); setEditItem(null); }} />}
+      {editItem && <EditOutboundModal item={editItem} onClose={() => setEditItem(null)} onSave={(u) => { handleSaveEdit(u); setEditItem(null); }} onDelete={(item) => { handleDeleteOutbound(item); setEditItem(null); }} />}
     </div>
   );
 }
