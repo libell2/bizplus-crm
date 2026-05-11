@@ -584,7 +584,68 @@ function QuickActionModal({ onClose, onPick }) {
   );
 }
 
-Object.assign(window, { Modal, Field, Input, Sel, Textarea, PrimaryBtn, GhostBtn, Toast, NewInboundModal, NewOutboundModal, NewDealModal, QuickActionModal });
+function EditInboundModal({ item, onClose, onSave }) {
+  const [f, setF] = useStateM({ ...item });
+  const submit = () => {
+    if (!f.name) return alert("기업명을 입력해주세요");
+    onSave({ ...f, employees: Number(f.employees) || 0, updatedAt: new Date().toISOString().slice(0, 10) });
+  };
+  return (
+    <Modal title={`편집: ${item.name}`} onClose={onClose} size="lg">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <Field label="기업명" required><Input value={f.name || ""} onChange={e => setF({ ...f, name: e.target.value })} /></Field>
+        <Field label="임직원수"><Input type="number" value={f.employees || ""} onChange={e => setF({ ...f, employees: e.target.value })} /></Field>
+        <Field label="지역"><Input value={f.region || ""} onChange={e => setF({ ...f, region: e.target.value })} /></Field>
+        <Field label="서비스"><Sel value={f.service || "복지"} onChange={v => setF({ ...f, service: v })} options={["복지", "식권", "식권금액형", "식권쿠폰형", "복지포인트", "상품권"]} /></Field>
+        <Field label="상태"><Sel value={f.status || "검토중"} onChange={v => setF({ ...f, status: v })} options={["검토중", "도입확정", "오픈", "보류", "실패"]} /></Field>
+        <Field label="담당자"><Sel value={f.owner || "이종민"} onChange={v => setF({ ...f, owner: v })} options={["이종민", "강동헌"]} /></Field>
+        <Field label="인입일"><Input type="date" value={f.inflowDate || ""} onChange={e => setF({ ...f, inflowDate: e.target.value })} /></Field>
+        <Field label="미팅일"><Input type="date" value={f.meetingDate || ""} onChange={e => setF({ ...f, meetingDate: e.target.value })} /></Field>
+      </div>
+      <Field label="고객 담당자"><Input value={f.contactName || ""} onChange={e => setF({ ...f, contactName: e.target.value })} /></Field>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <Field label="연락처"><Input value={f.phone || ""} onChange={e => setF({ ...f, phone: e.target.value })} /></Field>
+        <Field label="이메일"><Input value={f.email || ""} onChange={e => setF({ ...f, email: e.target.value })} /></Field>
+      </div>
+      <Field label="영업 내용"><Textarea value={f.detail || ""} onChange={e => setF({ ...f, detail: e.target.value })} /></Field>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingTop: 14, borderTop: "1px solid var(--line-soft)" }}>
+        <span style={{ fontSize: 11, color: "var(--ink-4)" }}>저장 시 업데이트일 자동 갱신</span>
+        <div style={{ display: "flex", gap: 8 }}><GhostBtn onClick={onClose}>취소</GhostBtn><PrimaryBtn onClick={submit}>저장</PrimaryBtn></div>
+      </div>
+    </Modal>
+  );
+}
+
+function EditOutboundModal({ item, onClose, onSave }) {
+  const [f, setF] = useStateM({ ...item });
+  const submit = () => {
+    if (!f.name) return alert("기업명을 입력해주세요");
+    onSave({ ...f, lastUpdate: new Date().toISOString().slice(0, 10) });
+  };
+  return (
+    <Modal title={`편집: ${item.name}`} onClose={onClose} size="lg">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <Field label="기업명" required><Input value={f.name || ""} onChange={e => setF({ ...f, name: e.target.value })} /></Field>
+        <Field label="임직원수"><Input value={String(f.employees || "")} onChange={e => setF({ ...f, employees: e.target.value })} /></Field>
+        <Field label="지역"><Input value={f.region || ""} onChange={e => setF({ ...f, region: e.target.value })} /></Field>
+        <Field label="서비스"><Sel value={f.service || "복지"} onChange={v => setF({ ...f, service: v })} options={["복지", "식권", "식권금액형", "식권쿠폰형", "식권(발송형)", "복지포인트"]} /></Field>
+      </div>
+      <Field label="고객 담당자"><Input value={f.contactName || ""} onChange={e => setF({ ...f, contactName: e.target.value })} /></Field>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <Field label="연락처"><Input value={f.phone || ""} onChange={e => setF({ ...f, phone: e.target.value })} /></Field>
+        <Field label="이메일"><Input value={f.email || ""} onChange={e => setF({ ...f, email: e.target.value })} /></Field>
+      </div>
+      <Field label="현황"><Textarea value={f.detail || ""} onChange={e => setF({ ...f, detail: e.target.value })} /></Field>
+      <Field label="비고"><Input value={f.note || ""} onChange={e => setF({ ...f, note: e.target.value })} /></Field>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingTop: 14, borderTop: "1px solid var(--line-soft)" }}>
+        <span style={{ fontSize: 11, color: "var(--ink-4)" }}>저장 시 마지막 업데이트일 자동 갱신</span>
+        <div style={{ display: "flex", gap: 8 }}><GhostBtn onClick={onClose}>취소</GhostBtn><PrimaryBtn onClick={submit}>저장</PrimaryBtn></div>
+      </div>
+    </Modal>
+  );
+}
+
+Object.assign(window, { Modal, Field, Input, Sel, Textarea, PrimaryBtn, GhostBtn, Toast, NewInboundModal, NewOutboundModal, NewDealModal, QuickActionModal, EditInboundModal, EditOutboundModal });
 
 </script>
 
@@ -858,55 +919,81 @@ function KpiCard({ label, value, sub, rate, chart }) {
 }
 
 function MonthlyTrajectory({ goals, monthIdx }) {
-  const max = Math.max(...goals.monthlyGoal, ...goals.monthlyActual.map(x => Number(x) || 0));
-  const height = 180;
-  const colW = 100 / 12;
+  // Scale bars so the largest monthly goal = barArea height (= 100% reference)
+  const maxGoal = Math.max(...goals.monthlyGoal) || 1;
+  const chartH = 160;
+  const barArea = chartH - 20; // top 20px reserved for % labels / overflow
+
   return (
-    <div style={{ position: "relative", height: height + 40, marginTop: 8 }}>
-      {/* Grid */}
-      <svg width="100%" height={height} style={{ position: "absolute", top: 0, left: 0 }}>
-        {[0.25, 0.5, 0.75].map(y => (
-          <line key={y} x1="0" x2="100%" y1={height * (1 - y)} y2={height * (1 - y)} stroke="var(--line-soft)" strokeDasharray="2 4" />
-        ))}
-        {/* Goal line */}
-        <polyline
-          fill="none" stroke="var(--ink-4)" strokeWidth={1.4} strokeDasharray="4 4"
-          points={goals.monthlyGoal.map((g, i) => {
-            const x = (i + 0.5) * (100 / 12);
-            const y = height - (Number(g) / max) * (height - 12) - 6;
-            return `${x}%,${y}`;
-          }).join(" ")}
-          vectorEffect="non-scaling-stroke"
-        />
-      </svg>
-      {/* Bars */}
-      <div style={{ position: "absolute", bottom: 40, left: 0, right: 0, display: "flex", height }}>
+    <div style={{ marginTop: 8 }}>
+      {/* Chart */}
+      <div style={{ display: "flex", alignItems: "flex-end", height: chartH, gap: 0 }}>
         {goals.monthlyGoal.map((g, i) => {
           const a = Number(goals.monthlyActual[i]) || 0;
-          const aH = (a / max) * (height - 12);
-          const gH = (Number(g) / max) * (height - 12);
           const isPast = i <= monthIdx;
           const isCurrent = i === monthIdx;
           const rate = g ? a / g : 0;
-          const fillColor = !isPast ? "var(--bg-sunken)" : (rate >= 1 ? "var(--accent)" : rate >= 0.7 ? "#7d8ad4" : "var(--warn)");
+          const goalH = Math.round((g / maxGoal) * barArea);
+          const actualH = Math.round(Math.min((a / maxGoal) * barArea, barArea + 10));
+          const barColor = !isPast ? "var(--line)" : rate >= 1 ? "#1d6b48" : rate >= 0.7 ? "#5a67d8" : "#c79518";
+
           return (
-            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", position: "relative", gap: 2, paddingInline: 4 }}>
-              {isPast && (
-                <span style={{ fontSize: 10, color: rate >= 1 ? "var(--pos)" : "var(--ink-3)", fontWeight: 600, marginBottom: 2 }} className="mono">{(rate * 100).toFixed(0)}%</span>
+            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", position: "relative", height: "100%", paddingInline: 2 }}>
+              {/* Achievement % label above goal bar */}
+              {isPast && g > 0 && (
+                <div style={{
+                  position: "absolute", bottom: goalH + 3, left: 0, right: 0,
+                  textAlign: "center", fontSize: 9, fontWeight: 700,
+                  color: rate >= 1 ? "#1d6b48" : rate >= 0.7 ? "#5a67d8" : "#c79518",
+                  fontFamily: "JetBrains Mono",
+                }}>
+                  {Math.round(rate * 100)}%
+                </div>
               )}
-              <div style={{ width: "100%", maxWidth: 36, height: aH, background: fillColor, borderRadius: "4px 4px 0 0", position: "relative", border: isCurrent ? "1px solid var(--accent)" : "none" }} title={`${MONTHS[i]}: ${KRW(a)} / 목표 ${KRW(g)}`} />
+              {/* Goal outline box (= 100% target) */}
+              <div style={{
+                position: "absolute", bottom: 0, left: 3, right: 3, height: goalH,
+                border: isCurrent ? "1.5px solid var(--accent)" : "1px dashed var(--line)",
+                borderRadius: "4px 4px 0 0", boxSizing: "border-box",
+                background: "var(--bg-sunken)",
+              }} title={`목표: ${KRW(g)}`} />
+              {/* Actual fill bar */}
+              {isPast && actualH > 0 && (
+                <div style={{
+                  position: "absolute", bottom: 0, left: 5, right: 5, height: actualH,
+                  background: barColor, borderRadius: "3px 3px 0 0",
+                  transition: "height 600ms cubic-bezier(.2,.8,.2,1)", opacity: 0.85,
+                }} title={`${MONTHS[i]}: 실적 ${KRW(a)} / 목표 ${KRW(g)}`} />
+              )}
             </div>
           );
         })}
       </div>
+
       {/* Month labels */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", height: 32 }}>
+      <div style={{ display: "flex", marginTop: 6, borderTop: "1px solid var(--line-soft)", paddingTop: 6 }}>
         {MONTHS.map((m, i) => (
-          <div key={m} style={{ flex: 1, textAlign: "center", paddingTop: 8 }}>
-            <div style={{ fontSize: 11, color: i === monthIdx ? "var(--ink)" : "var(--ink-3)", fontWeight: i === monthIdx ? 600 : 400 }}>{m}</div>
-            <div className="mono" style={{ fontSize: 9, color: "var(--ink-4)", marginTop: 2 }}>{KRW(goals.monthlyGoal[i])}</div>
+          <div key={m} style={{ flex: 1, textAlign: "center" }}>
+            <div style={{ fontSize: 10.5, color: i === monthIdx ? "var(--ink)" : "var(--ink-3)", fontWeight: i === monthIdx ? 700 : 400 }}>{m}</div>
+            <div className="mono" style={{ fontSize: 8.5, color: "var(--ink-4)", marginTop: 1 }}>{KRW(goals.monthlyGoal[i])}</div>
           </div>
         ))}
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: "flex", gap: 14, justifyContent: "flex-end", marginTop: 10, fontSize: 10.5, color: "var(--ink-3)" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ display: "inline-block", width: 10, height: 10, border: "1px dashed var(--line)", borderRadius: 2, background: "var(--bg-sunken)" }} />목표(100%)
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ display: "inline-block", width: 10, height: 10, background: "#1d6b48", borderRadius: 2, opacity: 0.85 }} />달성 ≥100%
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ display: "inline-block", width: 10, height: 10, background: "#5a67d8", borderRadius: 2, opacity: 0.85 }} />70~99%
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ display: "inline-block", width: 10, height: 10, background: "#c79518", borderRadius: 2, opacity: 0.85 }} />~70%
+        </span>
       </div>
     </div>
   );
@@ -940,8 +1027,23 @@ Object.assign(window, { Dashboard });
 /* eslint-disable */
 const { useState: useStateI, useMemo: useMemoI } = React;
 
+const getInboundYear = r => typeof r.inflowDate === "string" && r.inflowDate.length >= 4 ? r.inflowDate.slice(0, 4) : null;
+const getInboundMonth = r => typeof r.inflowDate === "string" && r.inflowDate.length >= 7 ? parseInt(r.inflowDate.slice(5, 7)) : null;
+const getInboundPeriod = r => {
+  const m = getInboundMonth(r);
+  if (!m) return null;
+  if (m <= 3) return "1분기";
+  if (m <= 6) return "2분기";
+  if (m <= 9) return "3분기";
+  return "4분기";
+};
+const getInboundHalf = r => {
+  const m = getInboundMonth(r);
+  return m ? (m <= 6 ? "상반기" : "하반기") : null;
+};
+
 function InboundView({ data, setData, onNew }) {
-  const [filter, setFilter] = useStateI({ status: "전체", owner: "전체", service: "전체", region: "전체", month: "전체", q: "" });
+  const [filter, setFilter] = useStateI({ status: "전체", owner: "전체", service: "전체", region: "전체", year: "전체", period: "전체", q: "" });
   const [sort, setSort] = useStateI({ key: "inflowDate", dir: "desc" });
   const [view, setView] = useStateI("kanban"); // kanban | list
   const [editItem, setEditItem] = useStateI(null);
@@ -957,7 +1059,14 @@ function InboundView({ data, setData, onNew }) {
       if (filter.owner !== "전체" && r.owner !== filter.owner) return false;
       if (filter.service !== "전체" && r.service !== filter.service) return false;
       if (filter.region !== "전체" && !(r.region || "").includes(filter.region)) return false;
-      if (filter.month !== "전체" && r.month !== filter.month) return false;
+      if (filter.year !== "전체" && getInboundYear(r) !== filter.year) return false;
+      if (filter.period !== "전체") {
+        if (filter.period === "상반기" || filter.period === "하반기") {
+          if (getInboundHalf(r) !== filter.period) return false;
+        } else {
+          if (getInboundPeriod(r) !== filter.period) return false;
+        }
+      }
       if (filter.q) {
         const q = filter.q.toLowerCase();
         const hay = `${r.name || ""} ${r.contactName || ""} ${r.detail || ""} ${r.region || ""}`.toLowerCase();
@@ -973,13 +1082,14 @@ function InboundView({ data, setData, onNew }) {
     });
   }, [data.inbound, filter, sort]);
 
-  const resetFilters = () => setFilter({ status: "전체", owner: "전체", service: "전체", region: "전체", month: "전체", q: "" });
+  const resetFilters = () => setFilter({ status: "전체", owner: "전체", service: "전체", region: "전체", year: "전체", period: "전체", q: "" });
   const activeFilterCount = Object.entries(filter).filter(([k, v]) => v && v !== "전체").length;
 
   const owners = ["전체", ...Array.from(new Set(data.inbound.map(i => i.owner).filter(Boolean)))];
   const services = ["전체", ...Array.from(new Set(data.inbound.map(i => i.service).filter(Boolean)))];
   const regions = ["전체", ...Array.from(new Set(data.inbound.map(i => (i.region || "").split(" ")[0]).filter(Boolean)))];
-  const months = ["전체", ...Array.from(new Set(data.inbound.map(i => i.month).filter(Boolean)))];
+  const years = ["전체", ...Array.from(new Set(data.inbound.map(getInboundYear).filter(Boolean))).sort()];
+  const periods = ["전체", "1분기", "2분기", "3분기", "4분기", "상반기", "하반기"];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -1003,7 +1113,8 @@ function InboundView({ data, setData, onNew }) {
         <Select value={filter.owner} onChange={v => setFilter({ ...filter, owner: v })} options={owners} label="담당" />
         <Select value={filter.service} onChange={v => setFilter({ ...filter, service: v })} options={services} label="서비스" />
         <Select value={filter.region} onChange={v => setFilter({ ...filter, region: v })} options={regions} label="지역" />
-        <Select value={filter.month} onChange={v => setFilter({ ...filter, month: v })} options={months} label="월" />
+        <Select value={filter.year} onChange={v => setFilter({ ...filter, year: v })} options={years} label="년도" />
+        <Select value={filter.period} onChange={v => setFilter({ ...filter, period: v })} options={periods} label="기간" />
         {activeFilterCount > 0 && (
           <button onClick={resetFilters} style={{ background: "transparent", color: "var(--neg)", border: "none", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>
             초기화 ({activeFilterCount})
@@ -1040,6 +1151,7 @@ function InboundView({ data, setData, onNew }) {
       </div>
 
       {view === "kanban" ? <Kanban items={filtered} setData={setData} data={data} onEdit={setEditItem} /> : <ListView items={filtered} sort={sort} setSort={setSort} onEdit={setEditItem} />}
+
       {editItem && <EditInboundModal item={editItem} onClose={() => setEditItem(null)} onSave={(u) => { handleSaveEdit(u); setEditItem(null); }} />}
     </div>
   );
@@ -1058,9 +1170,8 @@ function Kanban({ items, setData, data, onEdit }) {
             onDragOver={e => { e.preventDefault(); setDragOver(col); }}
             onDragLeave={() => setDragOver(null)}
             onDrop={e => {
-              const idx = Number(e.dataTransfer.getData("text/idx"));
-              const next = [...data.inbound];
-              if (next[idx]) next[idx] = { ...next[idx], status: col };
+              const name = e.dataTransfer.getData("text/name");
+              const next = data.inbound.map(it => it.name === name ? { ...it, status: col, updatedAt: new Date().toISOString().slice(0, 10) } : it);
               setData({ ...data, inbound: next });
               setDragOver(null);
             }}
@@ -1080,14 +1191,14 @@ function Kanban({ items, setData, data, onEdit }) {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 600, overflowY: "auto" }}>
               {colItems.map((item, i) => {
-                const realIdx = data.inbound.indexOf(item);
                 return (
                   <div key={i} draggable
-                    onDragStart={e => e.dataTransfer.setData("text/idx", String(realIdx))}
+                    onDragStart={e => e.dataTransfer.setData("text/name", item.name)}
+                    onClick={() => onEdit && onEdit(item)}
                     style={{
                       background: "#fff", padding: 12, borderRadius: 8,
                       border: "1px solid var(--line)", boxShadow: "var(--shadow-1)",
-                      cursor: "grab",
+                      cursor: "pointer",
                     }}>
                     <div style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.3, marginBottom: 4 }}>{item.name}</div>
                     <div style={{ fontSize: 10.5, color: "var(--ink-3)", marginBottom: 8, lineHeight: 1.4 }}>
@@ -1118,7 +1229,7 @@ function Kanban({ items, setData, data, onEdit }) {
   );
 }
 
-function ListView({ items, sort, setSort }) {
+function ListView({ items, sort, setSort, onEdit }) {
   const SortTh = ({ children, k, align }) => <SortableTh sort={sort} setSort={setSort} sortKey={k} align={align}>{children}</SortableTh>;
   return (
     <Card padding={0}>
@@ -1139,7 +1250,7 @@ function ListView({ items, sort, setSort }) {
           </thead>
           <tbody>
             {items.slice(0, 100).map((r, i) => (
-              <tr key={i} style={{ borderBottom: "1px solid var(--line-soft)" }}>
+              <tr key={i} onClick={() => onEdit && onEdit(r)} style={{ borderBottom: "1px solid var(--line-soft)", cursor: "pointer" }} title="클릭하여 편집">
                 <TdI><StatusPill status={r.status} size="sm" /></TdI>
                 <TdI><span style={{ fontWeight: 500 }}>{r.name}</span></TdI>
                 <TdI>{r.region || "—"}</TdI>
@@ -1196,11 +1307,28 @@ Object.assign(window, { InboundView });
 /* eslint-disable */
 const { useState: useStateO, useMemo: useMemoO } = React;
 
+const getOutboundYear = r => typeof r.lastUpdate === "string" && r.lastUpdate.length >= 4 && r.lastUpdate !== "미컨택" ? r.lastUpdate.slice(0, 4) : null;
+const getOutboundMonth = r => typeof r.lastUpdate === "string" && r.lastUpdate.length >= 7 && r.lastUpdate !== "미컨택" ? parseInt(r.lastUpdate.slice(5, 7)) : null;
+const getOutboundPeriod = r => {
+  const m = getOutboundMonth(r);
+  if (!m) return null;
+  if (m <= 3) return "1분기";
+  if (m <= 6) return "2분기";
+  if (m <= 9) return "3분기";
+  return "4분기";
+};
+const getOutboundHalf = r => {
+  const m = getOutboundMonth(r);
+  return m ? (m <= 6 ? "상반기" : "하반기") : null;
+};
+
 function OutboundView({ data, setData, onNew }) {
   const [q, setQ] = useStateO("");
   const [region, setRegion] = useStateO("전체");
   const [service, setService] = useStateO("전체");
   const [status, setStatus] = useStateO("전체");
+  const [year, setYear] = useStateO("전체");
+  const [period, setPeriod] = useStateO("전체");
   const [sort, setSort] = useStateO({ key: "lastUpdate", dir: "desc" });
   const [editItem, setEditItem] = useStateO(null);
 
@@ -1228,14 +1356,22 @@ function OutboundView({ data, setData, onNew }) {
       if (region !== "전체" && !(r.region || "").includes(region)) return false;
       if (service !== "전체" && r.service !== service) return false;
       if (status !== "전체" && inferStatus(r) !== status) return false;
+      if (year !== "전체" && getOutboundYear(r) !== year) return false;
+      if (period !== "전체") {
+        if (period === "상반기" || period === "하반기") {
+          if (getOutboundHalf(r) !== period) return false;
+        } else {
+          if (getOutboundPeriod(r) !== period) return false;
+        }
+      }
       return true;
     });
     const dir = sort.dir === "asc" ? 1 : -1;
     return arr.sort((a, b) => {
       let av = a[sort.key], bv = b[sort.key];
       if (sort.key === "lastUpdate") {
-        av = av === "미컨택" ? 0 : (Number(av) || 0);
-        bv = bv === "미컨택" ? 0 : (Number(bv) || 0);
+        av = av === "미컨택" ? "0" : av;
+        bv = bv === "미컨택" ? "0" : bv;
       }
       if (sort.key === "employees") {
         av = av === "-" ? 0 : (Number(av) || 0);
@@ -1244,11 +1380,13 @@ function OutboundView({ data, setData, onNew }) {
       if (typeof av === "number" || typeof bv === "number") return ((Number(av) || 0) - (Number(bv) || 0)) * dir;
       return String(av || "").localeCompare(String(bv || "")) * dir;
     });
-  }, [data.outbound, q, region, service, status, sort]);
+  }, [data.outbound, q, region, service, status, year, period, sort]);
 
   const regions = ["전체", ...Array.from(new Set(data.outbound.map(o => (o.region || "").split(" ")[0]).filter(Boolean)))];
   const services = ["전체", ...Array.from(new Set(data.outbound.map(o => o.service).filter(Boolean)))];
   const statuses = ["전체", "미팅 예정", "오픈 확정", "검토 중", "신규 컨택", "미컨택"];
+  const years = ["전체", ...Array.from(new Set(data.outbound.map(getOutboundYear).filter(Boolean))).sort()];
+  const periods = ["전체", "1분기", "2분기", "3분기", "4분기", "상반기", "하반기"];
 
   // Group by status (parsed from detail/lastUpdate)
   const grouped = useMemoO(() => {
@@ -1257,8 +1395,8 @@ function OutboundView({ data, setData, onNew }) {
     return groups;
   }, [filtered]);
 
-  const activeFilters = [region, service, status].filter(v => v && v !== "전체").length + (q ? 1 : 0);
-  const reset = () => { setQ(""); setRegion("전체"); setService("전체"); setStatus("전체"); };
+  const activeFilters = [region, service, status, year, period].filter(v => v && v !== "전체").length + (q ? 1 : 0);
+  const reset = () => { setQ(""); setRegion("전체"); setService("전체"); setStatus("전체"); setYear("전체"); setPeriod("전체"); };
 
   const SortTh = ({ children, k, align }) => <SortableTh sort={sort} setSort={setSort} sortKey={k} align={align}>{children}</SortableTh>;
 
@@ -1273,6 +1411,8 @@ function OutboundView({ data, setData, onNew }) {
         <Select value={status} onChange={setStatus} options={statuses} label="상태" />
         <Select value={service} onChange={setService} options={services} label="서비스" />
         <Select value={region} onChange={setRegion} options={regions} label="지역" />
+        <Select value={year} onChange={setYear} options={years} label="년도" />
+        <Select value={period} onChange={setPeriod} options={periods} label="기간" />
         {activeFilters > 0 && <button onClick={reset} style={{ background: "transparent", color: "var(--neg)", border: "none", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>초기화 ({activeFilters})</button>}
         <div style={{ flex: 1 }} />
         <Pill tone="ghost">{filtered.length} / {data.outbound.length}건</Pill>
