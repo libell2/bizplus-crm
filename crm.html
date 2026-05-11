@@ -1776,18 +1776,85 @@ Object.assign(window, { RevenueView });
 /* eslint-disable */
 const { useState: useStateDM, useRef: useRefDM } = React;
 
-const INBOUND_MAP = {'기업명':'name','회사명':'name','임직원수':'employees','임직원':'employees','직원수':'employees','지역':'region','서비스':'service','상태':'status','인입일':'inflowDate','인입 일자':'inflowDate','담당자':'owner','고객담당자':'contactName','고객 담당자':'contactName','담당자명':'contactName','이메일':'email','메모':'detail','비고':'detail','내용':'detail','미팅일':'meetingDate','미팅 일자':'meetingDate','월거래액':'monthlyFee','월 거래액':'monthlyFee','연거래액':'annualFee','연 거래액':'annualFee'};
-const OUTBOUND_MAP = {'기업명':'name','회사명':'name','임직원수':'employees','임직원':'employees','지역':'region','업종':'industry','서비스':'service','상태':'status','담당자':'owner','메모':'note','비고':'note','소스':'source'};
-const DEALS_MAP = {'기업명':'name','회사명':'name','월거래액':'monthly','월 거래액':'monthly','연거래액':'annual','연 거래액':'annual','담당자':'owner','상품':'product','상태':'status','메모':'note','비고':'note','시작일':'startDate'};
+// ── 컬럼 매핑 (정규화된 키 → CRM 필드) ─────────────────────────────────────
+const INBOUND_MAP = {
+  '기업명':'name','회사명':'name','기업':'name','company':'name',
+  '임직원수':'employees','임직원':'employees','직원수':'employees','사원수':'employees','인원수':'employees','employees':'employees',
+  '지역':'region','본사위치':'region','주소':'region','위치':'region',
+  '서비스':'service','제안서비스':'service','관심서비스':'service',
+  '상태':'status','진행상태':'status','검토상태':'status',
+  '인입일':'inflowDate','인입일자':'inflowDate','등록일':'inflowDate','접수일':'inflowDate',
+  '담당자':'owner','영업담당자':'owner','담당':'owner','owner':'owner',
+  '고객담당자':'contactName','고객담당':'contactName','담당자명':'contactName','수신인':'contactName',
+  '이메일':'email','email':'email','메일':'email',
+  '메모':'detail','비고':'detail','내용':'detail','특이사항':'detail','note':'detail',
+  '미팅일':'meetingDate','미팅일자':'meetingDate','미팅':'meetingDate',
+  '월거래액':'monthlyFee','월거래':'monthlyFee','월금액':'monthlyFee',
+  '연거래액':'annualFee','연거래':'annualFee','연금액':'annualFee',
+};
+const OUTBOUND_MAP = {
+  '기업명':'name','회사명':'name','기업':'name','company':'name',
+  '임직원수':'employees','임직원':'employees','직원수':'employees','사원수':'employees',
+  '지역':'region','본사위치':'region','위치':'region',
+  '업종':'industry','산업':'industry','업태':'industry',
+  '서비스':'service','제안서비스':'service',
+  '상태':'status','진행상태':'status',
+  '담당자':'owner','영업담당자':'owner',
+  '메모':'note','비고':'note','특이사항':'note',
+  '소스':'source','출처':'source',
+};
+const DEALS_MAP = {
+  '기업명':'name','회사명':'name','기업':'name','company':'name',
+  '월거래액':'monthly','월거래':'monthly','월금액':'monthly',
+  '연거래액':'annual','연거래':'annual','연금액':'annual',
+  '담당자':'owner','영업담당자':'owner',
+  '상품':'product','서비스':'product','제품':'product',
+  '상태':'status','진행상태':'status',
+  '메모':'note','비고':'note',
+  '시작일':'startDate','오픈일':'startDate',
+};
+
+// 헤더 정규화: 공백 제거 + 소문자
+function normalizeHeader(h) {
+  return String(h||'').replace(/\s/g,'').toLowerCase();
+}
+
+function buildNormMap(colMap) {
+  const m = {};
+  Object.entries(colMap).forEach(([k,v]) => { m[k.replace(/\s/g,'').toLowerCase()] = v; });
+  return m;
+}
 
 function parseSheet(rows, colMap) {
   if (!rows || rows.length < 2) return [];
-  const headers = rows[0].map(h => String(h||'').trim());
-  return rows.slice(1).filter(row=>row.some(c=>c!=null&&c!=='')).map(row=>{
-    const obj={};
-    headers.forEach((h,i)=>{ const k=colMap[h]; if(k) obj[k]=row[i]!=null?String(row[i]).trim():''; });
-    return obj;
-  }).filter(obj=>obj.name);
+  const normMap = buildNormMap(colMap);
+  const rawHeaders = rows[0];
+  const headers = rawHeaders.map(h => normalizeHeader(h));
+  const parsed = rows.slice(1)
+    .filter(row => row.some(c => c != null && String(c).trim() !== ''))
+    .map(row => {
+      const obj = {};
+      headers.forEach((h, i) => {
+        const field = normMap[h];
+        if (field) obj[field] = row[i] != null ? String(row[i]).trim() : '';
+      });
+      return obj;
+    })
+    .filter(obj => obj.name && obj.name !== '');
+  return parsed;
+}
+
+// 시트 타입 자동 감지
+function detectSheetType(sheetName, headers) {
+  const n = sheetName.replace(/\s/g,'').toLowerCase();
+  if (n.includes('인바운드')||n.includes('inbound')) return 'inbound';
+  if (n.includes('아웃바운드')||n.includes('outbound')) return 'outbound';
+  if (n.includes('딜')||n.includes('deal')||n.includes('오픈')) return 'deals';
+  // 헤더로 타입 추론
+  const normH = headers.map(h=>normalizeHeader(h));
+  if (normH.includes('월거래액')||normH.includes('월거래')||normH.includes('monthly')) return 'deals';
+  if (normH.includes('업종')||normH.includes('industry')) return 'outbound';
+  return 'inbound';
 }
 
 async function parseExcelFile(file) {
@@ -1796,21 +1863,17 @@ async function parseExcelFile(file) {
     reader.onload = e => {
       try {
         const XLSX = window.XLSX;
-        const wb = XLSX.read(e.target.result, { type:'array' });
-        const result = { inbound:[], outbound:[], deals:[] };
+        const wb = XLSX.read(e.target.result, { type:'array', cellDates: true });
+        const result = { inbound:[], outbound:[], deals:[], _debug:[] };
         wb.SheetNames.forEach(name => {
           const ws = wb.Sheets[name];
           const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
-          const lower = name.replace(/\s/g,'').toLowerCase();
-          if (lower.includes('인바운드')||lower.includes('inbound')) result.inbound = parseSheet(rows, INBOUND_MAP);
-          else if (lower.includes('아웃바운드')||lower.includes('outbound')) result.outbound = parseSheet(rows, OUTBOUND_MAP);
-          else if (lower.includes('딜')||lower.includes('deal')||lower.includes('오픈')) result.deals = parseSheet(rows, DEALS_MAP);
-          else if (wb.SheetNames.length===1) {
-            const hdrs=(rows[0]||[]).map(h=>String(h||''));
-            if (hdrs.includes('월거래액')) result.deals=parseSheet(rows,DEALS_MAP);
-            else if (hdrs.includes('업종')) result.outbound=parseSheet(rows,OUTBOUND_MAP);
-            else result.inbound=parseSheet(rows,INBOUND_MAP);
-          }
+          if (!rows || rows.length < 2) { result._debug.push(`시트 "${name}": 데이터 없음`); return; }
+          const type = detectSheetType(name, rows[0]);
+          const mapRef = { inbound:INBOUND_MAP, outbound:OUTBOUND_MAP, deals:DEALS_MAP }[type];
+          const parsed = parseSheet(rows, mapRef);
+          result[type] = [...(result[type]||[]), ...parsed];
+          result._debug.push(`시트 "${name}" → ${type} ${parsed.length}건 (전체 ${rows.length-1}행)`);
         });
         resolve(result);
       } catch(err) { reject(err); }
@@ -1917,7 +1980,7 @@ function DataImportModal({ onClose, onImport, currentData }) {
   const ib=src?.inbound?.length||0, ob=src?.outbound?.length||0, dl=src?.deals?.length||0, total=ib+ob+dl;
 
   return (
-    <Modal onClose={onClose} title="데이터 가져오기" width={580}>
+    <Modal onClose={onClose} title="데이터 가져오기" size="lg">
       <div style={{display:'flex',gap:4,marginBottom:18,padding:3,background:'var(--bg-sunken)',borderRadius:9}}>
         {[['excel','📊 엑셀 업로드'],['notion','🔗 Notion 동기화']].map(([k,l])=>(
           <button key={k} onClick={()=>{setTab(k);reset();}} style={{flex:1,padding:'8px',border:'none',borderRadius:7,cursor:'pointer',fontFamily:'inherit',fontSize:13,background:tab===k?'#fff':'transparent',color:tab===k?'var(--ink)':'var(--ink-3)',boxShadow:tab===k?'var(--shadow-1)':'none',fontWeight:tab===k?600:400}}>{l}</button>
@@ -1950,9 +2013,24 @@ function DataImportModal({ onClose, onImport, currentData }) {
       )}
       {(loading||notionLoading) && <div style={{textAlign:'center',padding:12,color:'var(--ink-3)',fontSize:13,marginTop:10}}>처리 중…</div>}
       {error && <div style={{marginTop:10,padding:'10px 12px',background:'#fff0f0',border:'1px solid #ffb3b3',borderRadius:8,fontSize:12.5,color:'#c00',whiteSpace:'pre-line'}}>{error}</div>}
+
+      {/* 파싱 결과 - 0건일 때도 디버그 정보 표시 */}
+      {src && total===0 && !loading && (
+        <div style={{marginTop:12,padding:'12px 14px',background:'#fffbeb',border:'1px solid #f5d67a',borderRadius:8,fontSize:12,color:'#7a5c00',lineHeight:1.8}}>
+          <strong>⚠ 데이터를 인식하지 못했습니다</strong>
+          {src._debug?.length>0 && <div style={{marginTop:4,opacity:0.8}}>{src._debug.join(' · ')}</div>}
+          <div style={{marginTop:6}}>
+            <div>• 1행에 헤더가 있는지 확인해주세요 (기업명, 임직원수, 지역 ...)</div>
+            <div>• 헤더에 <strong>기업명</strong> 또는 <strong>회사명</strong> 컬럼이 반드시 있어야 합니다</div>
+            <div>• 아래 <strong>템플릿 다운로드</strong> 후 해당 형식으로 작성해주세요</div>
+          </div>
+        </div>
+      )}
+
       {src && total>0 && (
         <div style={{marginTop:16,paddingTop:16,borderTop:'1px solid var(--line)'}}>
-          <div style={{fontSize:12.5,fontWeight:600,marginBottom:8}}>인식된 데이터</div>
+          <div style={{fontSize:12.5,fontWeight:600,marginBottom:6}}>인식된 데이터</div>
+          {src._debug?.length>0 && <div style={{fontSize:11,color:'var(--ink-3)',marginBottom:8}}>{src._debug.join(' · ')}</div>}
           <div style={{display:'flex',gap:8,marginBottom:10,flexWrap:'wrap'}}>
             {[['인바운드',ib],['아웃바운드',ob],['오픈딜',dl]].map(([k,v])=>v>0&&<div key={k} style={{padding:'5px 12px',background:'var(--bg-sunken)',borderRadius:7,fontSize:12}}>{k} <strong style={{color:'var(--accent)'}}>{v}건</strong></div>)}
           </div>
