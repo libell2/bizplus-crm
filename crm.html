@@ -130,7 +130,48 @@ const STATUS_META = {
   "미컨택":     { fg: "#4a4842", bg: "#ecead9", dot: "#8a8780", short: "미컨택" },
 };
 
-Object.assign(window, { KRW, KRWFull, PCT, excelToDate, fmtDate, fmtDateLong, daysAgo, MONTHS, CURRENT_MONTH_IDX, summarizeGoals, STATUS_META });
+const OUTBOUND_STATUS_META = {
+  "미팅 예정": { dot: "#2b3aa3", tone: "accent" },
+  "오픈 확정": { dot: "#1d6b48", tone: "pos" },
+  "검토 중":   { dot: "#c79518", tone: "warn" },
+  "신규 컨택": { dot: "#5a67d8", tone: "neutral" },
+  "미컨택":    { dot: "#a83b2c", tone: "neg" },
+};
+
+// Sales week helpers (Thursday–Wednesday cycle)
+const getCurrentSalesWeek = () => {
+  const today = new Date();
+  const dow = today.getDay(); // 0=Sun..6=Sat
+  const daysSinceThu = (dow + 3) % 7; // Thu=0,Fri=1,Sat=2,Sun=3,Mon=4,Tue=5,Wed=6
+  const start = new Date(today);
+  start.setDate(today.getDate() - daysSinceThu);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const toIso = d => d.toISOString().slice(0, 10);
+  const weekNum = Math.ceil(start.getDate() / 7);
+  const month = start.getMonth() + 1;
+  const fmt = d => `${d.getMonth() + 1}/${d.getDate()}`;
+  return { start: toIso(start), end: toIso(end), label: `${month}월 ${weekNum}주차`, range: `${fmt(start)} ~ ${fmt(end)}` };
+};
+
+const isUpdatedThisWeek = (record, weekStart, weekEnd, type) => {
+  const toIso = d => {
+    if (typeof d === "string" && d.length >= 10) return d.slice(0, 10);
+    if (typeof d === "number") { const dt = excelToDate(d); return dt ? dt.toISOString().slice(0, 10) : null; }
+    return null;
+  };
+  const dates = [];
+  if (type === "inbound") {
+    if (record.updatedAt) dates.push(record.updatedAt.slice(0, 10));
+    const s = toIso(record.inflowDate);
+    if (s) dates.push(s);
+  } else {
+    if (record.lastUpdate && record.lastUpdate !== "미컨택") dates.push(record.lastUpdate.slice(0, 10));
+  }
+  return dates.some(d => d >= weekStart && d <= weekEnd);
+};
+
+Object.assign(window, { KRW, KRWFull, PCT, excelToDate, fmtDate, fmtDateLong, daysAgo, MONTHS, CURRENT_MONTH_IDX, summarizeGoals, STATUS_META, OUTBOUND_STATUS_META, getCurrentSalesWeek, isUpdatedThisWeek });
 
 </script>
 
@@ -712,13 +753,17 @@ function Dashboard({ data, setTab }) {
     return order.map(k => ({ key: k, count: counts[k] || 0 }));
   }, [inbound]);
 
-  // Recent inbound (last 12 by inflowDate)
-  const recent = useMemoD(() => {
-    return [...inbound]
-      .filter(i => typeof i.inflowDate === "number")
-      .sort((a, b) => b.inflowDate - a.inflowDate)
-      .slice(0, 8);
-  }, [inbound]);
+  // Weekly activity (Thursday–Wednesday sales cycle)
+  const salesWeek = useMemoD(() => getCurrentSalesWeek(), []);
+  const weeklyActivity = useMemoD(() => {
+    const wib = inbound
+      .filter(r => isUpdatedThisWeek(r, salesWeek.start, salesWeek.end, "inbound"))
+      .map(r => ({ ...r, _type: "inbound" }));
+    const wob = outbound
+      .filter(r => isUpdatedThisWeek(r, salesWeek.start, salesWeek.end, "outbound"))
+      .map(r => ({ ...r, _type: "outbound" }));
+    return [...wib, ...wob];
+  }, [inbound, outbound, salesWeek]);
 
   // Top deals this period
   const topDeals = useMemoD(() => {
@@ -865,30 +910,49 @@ function Dashboard({ data, setTab }) {
         </Card>
 
         <Card padding={24}>
-          <SectionTitle action={<LiveDot />} hint="최근 인입">실시간 활동</SectionTitle>
-          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-            {recent.map((r, i) => (
-              <div key={i} style={{
-                display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10,
-                padding: "10px 0",
-                borderBottom: i < recent.length - 1 ? "1px dashed var(--line-soft)" : "none",
-              }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 2 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: 999, background: STATUS_META[r.status]?.dot || "#888" }} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3 }}>{r.name}</div>
-                  <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
-                    {r.service} · {r.region || "-"} · {r.employees}명
+          <SectionTitle
+            action={<span className="mono" style={{ fontSize: 10, color: "var(--ink-3)" }}>{salesWeek.range}</span>}
+            hint={salesWeek.label}
+          >주간 활동</SectionTitle>
+          {weeklyActivity.length === 0 ? (
+            <div style={{ textAlign: "center", color: "var(--ink-4)", fontSize: 12, padding: "28px 0" }}>이번 영업주 활동 없음</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+              {weeklyActivity.slice(0, 12).map((r, i) => {
+                const isInb = r._type === "inbound";
+                const dotColor = isInb
+                  ? (STATUS_META[r.status]?.dot || "#888")
+                  : (OUTBOUND_STATUS_META[r.outboundStatus]?.dot || "#5a67d8");
+                const dateStr = isInb
+                  ? fmtDate(r.updatedAt || r.inflowDate)
+                  : fmtDate(r.lastUpdate);
+                return (
+                  <div key={i} style={{
+                    display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10,
+                    padding: "10px 0",
+                    borderBottom: i < Math.min(weeklyActivity.length, 12) - 1 ? "1px dashed var(--line-soft)" : "none",
+                  }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 2 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: 999, background: dotColor }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, color: "#ef4444" }}>{r.name}</div>
+                      <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
+                        {isInb ? "인바운드" : "아웃바운드"} · {r.service} · {r.region || "—"}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      {isInb
+                        ? <StatusPill status={r.status} size="sm" />
+                        : <Pill tone={OUTBOUND_STATUS_META[r.outboundStatus]?.tone || "neutral"} size="sm">{r.outboundStatus || "검토 중"}</Pill>
+                      }
+                      <div className="mono" style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 4 }}>{dateStr}</div>
+                    </div>
                   </div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <StatusPill status={r.status} size="sm" />
-                  <div className="mono" style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 4 }}>{fmtDate(r.inflowDate)}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </Card>
       </div>
     </div>
@@ -1107,6 +1171,7 @@ function InboundView({ data, setData, onNew }) {
   const [sort, setSort] = useStateI({ key: "inflowDate", dir: "desc" });
   const [view, setView] = useStateI("kanban"); // kanban | list
   const [editItem, setEditItem] = useStateI(null);
+  const salesWeek = useMemoI(() => getCurrentSalesWeek(), []);
 
   const handleSaveEdit = (updated) => {
     const next = data.inbound.map(i => i.name === updated.name ? updated : i);
@@ -1213,14 +1278,14 @@ function InboundView({ data, setData, onNew }) {
         })}
       </div>
 
-      {view === "kanban" ? <Kanban items={filtered} setData={setData} data={data} onEdit={setEditItem} /> : <ListView items={filtered} sort={sort} setSort={setSort} onEdit={setEditItem} />}
+      {view === "kanban" ? <Kanban items={filtered} setData={setData} data={data} onEdit={setEditItem} salesWeek={salesWeek} /> : <ListView items={filtered} sort={sort} setSort={setSort} onEdit={setEditItem} salesWeek={salesWeek} />}
 
       {editItem && <EditInboundModal item={editItem} onClose={() => setEditItem(null)} onSave={(u) => { handleSaveEdit(u); setEditItem(null); }} onDelete={(item) => { handleDeleteInbound(item); setEditItem(null); }} />}
     </div>
   );
 }
 
-function Kanban({ items, setData, data, onEdit }) {
+function Kanban({ items, setData, data, onEdit, salesWeek }) {
   const cols = ["검토중", "도입확정", "오픈", "보류", "실패"];
   const [dragOver, setDragOver] = useStateI(null);
   return (
@@ -1263,7 +1328,7 @@ function Kanban({ items, setData, data, onEdit }) {
                       border: "1px solid var(--line)", boxShadow: "var(--shadow-1)",
                       cursor: "pointer",
                     }}>
-                    <div style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.3, marginBottom: 4 }}>{item.name}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.3, marginBottom: 4, color: salesWeek && isUpdatedThisWeek(item, salesWeek.start, salesWeek.end, "inbound") ? "#ef4444" : "inherit" }}>{item.name}</div>
                     <div style={{ fontSize: 10.5, color: "var(--ink-3)", marginBottom: 8, lineHeight: 1.4 }}>
                       {item.region || "—"} · {item.employees}명 · {item.service}
                     </div>
@@ -1292,7 +1357,7 @@ function Kanban({ items, setData, data, onEdit }) {
   );
 }
 
-function ListView({ items, sort, setSort, onEdit }) {
+function ListView({ items, sort, setSort, onEdit, salesWeek }) {
   const SortTh = ({ children, k, align }) => <SortableTh sort={sort} setSort={setSort} sortKey={k} align={align}>{children}</SortableTh>;
   return (
     <Card padding={0}>
@@ -1315,7 +1380,7 @@ function ListView({ items, sort, setSort, onEdit }) {
             {items.slice(0, 100).map((r, i) => (
               <tr key={i} onClick={() => onEdit && onEdit(r)} style={{ borderBottom: "1px solid var(--line-soft)", cursor: "pointer" }} title="클릭하여 편집">
                 <TdI><StatusPill status={r.status} size="sm" /></TdI>
-                <TdI><span style={{ fontWeight: 500 }}>{r.name}</span></TdI>
+                <TdI><span style={{ fontWeight: 500, color: salesWeek && isUpdatedThisWeek(r, salesWeek.start, salesWeek.end, "inbound") ? "#ef4444" : "inherit" }}>{r.name}</span></TdI>
                 <TdI>{r.region || "—"}</TdI>
                 <TdI align="right" mono>{r.employees}</TdI>
                 <TdI>{r.service}</TdI>
@@ -1385,14 +1450,6 @@ const getOutboundHalf = r => {
   return m ? (m <= 6 ? "상반기" : "하반기") : null;
 };
 
-const OUTBOUND_STATUS_META = {
-  "미팅 예정": { dot: "#2b3aa3", tone: "accent" },
-  "오픈 확정": { dot: "#1d6b48", tone: "pos" },
-  "검토 중":   { dot: "#c79518", tone: "warn" },
-  "신규 컨택": { dot: "#5a67d8", tone: "neutral" },
-  "미컨택":    { dot: "#a83b2c", tone: "neg" },
-};
-
 function OutboundView({ data, setData, onNew }) {
   const [q, setQ] = useStateO("");
   const [region, setRegion] = useStateO("전체");
@@ -1403,6 +1460,7 @@ function OutboundView({ data, setData, onNew }) {
   const [sort, setSort] = useStateO({ key: "lastUpdate", dir: "desc" });
   const [editItem, setEditItem] = useStateO(null);
   const [view, setView] = useStateO("list"); // list | kanban
+  const salesWeek = useMemoO(() => getCurrentSalesWeek(), []);
 
   const handleSaveEdit = (updated) => {
     const next = data.outbound.map(i => i.name === updated.name ? updated : i);
@@ -1518,7 +1576,7 @@ function OutboundView({ data, setData, onNew }) {
       </div>
 
       {view === "kanban"
-        ? <OutboundKanban items={filtered} data={data} setData={setData} inferStatus={inferStatus} onEdit={setEditItem} />
+        ? <OutboundKanban items={filtered} data={data} setData={setData} inferStatus={inferStatus} onEdit={setEditItem} salesWeek={salesWeek} />
         : (
           <Card padding={0}>
             <div style={{ overflow: "auto", maxHeight: 700 }}>
@@ -1541,7 +1599,7 @@ function OutboundView({ data, setData, onNew }) {
                     const days = typeof r.lastUpdate === "string" && r.lastUpdate !== "미컨택" ? daysAgo(r.lastUpdate) : null;
                     return (
                       <tr key={i} onClick={() => setEditItem(r)} style={{ borderBottom: "1px solid var(--line-soft)", cursor: "pointer" }} title="클릭하여 편집">
-                        <Tdo><div style={{ fontWeight: 500 }}>{r.name}</div></Tdo>
+                        <Tdo><div style={{ fontWeight: 500, color: isUpdatedThisWeek(r, salesWeek.start, salesWeek.end, "outbound") ? "#ef4444" : "inherit" }}>{r.name}</div></Tdo>
                         <Tdo>{r.region || "—"}</Tdo>
                         <Tdo align="right" mono>{r.employees === "-" ? "—" : r.employees}</Tdo>
                         <Tdo><Pill tone={String(r.service).includes("복지") ? "accent" : "warn"} size="sm">{r.service}</Pill></Tdo>
@@ -1580,7 +1638,7 @@ function OutboundView({ data, setData, onNew }) {
   );
 }
 
-function OutboundKanban({ items, data, setData, inferStatus, onEdit }) {
+function OutboundKanban({ items, data, setData, inferStatus, onEdit, salesWeek }) {
   const cols = ["신규 컨택", "검토 중", "미팅 예정", "오픈 확정", "미컨택"];
   const [dragOver, setDragOver] = useStateO(null);
 
@@ -1625,7 +1683,7 @@ function OutboundKanban({ items, data, setData, inferStatus, onEdit }) {
                       border: "1px solid var(--line)", boxShadow: "var(--shadow-1)",
                       cursor: "pointer",
                     }}>
-                    <div style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.3, marginBottom: 4 }}>{item.name}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.3, marginBottom: 4, color: salesWeek && isUpdatedThisWeek(item, salesWeek.start, salesWeek.end, "outbound") ? "#ef4444" : "inherit" }}>{item.name}</div>
                     <div style={{ fontSize: 10.5, color: "var(--ink-3)", marginBottom: 6, lineHeight: 1.4 }}>
                       {item.region || "—"} · {item.employees && item.employees !== "-" ? item.employees + "명" : "규모미상"} · {item.service}
                     </div>
