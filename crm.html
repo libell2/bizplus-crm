@@ -930,8 +930,8 @@ function Dashboard({ data, setData, setTab }) {
           {weeklyActivity.length === 0 ? (
             <div style={{ textAlign: "center", color: "var(--ink-4)", fontSize: 12, padding: "28px 0" }}>이번 영업주 활동 없음</div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-              {weeklyActivity.slice(0, 12).map((r, i) => {
+            <div style={{ display: "flex", flexDirection: "column", gap: 0, maxHeight: 360, overflowY: "auto" }}>
+              {weeklyActivity.map((r, i) => {
                 const isInb = r._type === "inbound";
                 const dotColor = isInb
                   ? (STATUS_META[r.status]?.dot || "#888")
@@ -943,7 +943,7 @@ function Dashboard({ data, setData, setTab }) {
                   <div key={i} onClick={() => setEditItem(r)} style={{
                     display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10,
                     padding: "10px 0",
-                    borderBottom: i < Math.min(weeklyActivity.length, 12) - 1 ? "1px dashed var(--line-soft)" : "none",
+                    borderBottom: i < weeklyActivity.length - 1 ? "1px dashed var(--line-soft)" : "none",
                     cursor: "pointer",
                   }}>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 2 }}>
