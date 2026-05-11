@@ -155,6 +155,7 @@ const getCurrentSalesWeek = () => {
 };
 
 const isUpdatedThisWeek = (record, weekStart, weekEnd, type) => {
+  if (record.weekExcluded) return false;
   const toIso = d => {
     if (typeof d === "string" && d.length >= 10) return d.slice(0, 10);
     if (typeof d === "number") { const dt = excelToDate(d); return dt ? dt.toISOString().slice(0, 10) : null; }
@@ -666,7 +667,12 @@ function EditInboundModal({ item, onClose, onSave, onDelete }) {
               <button onClick={() => { onDelete(item); onClose(); }} style={{ background: "var(--neg)", color: "#fff", border: "none", padding: "7px 12px", borderRadius: 7, fontWeight: 600, cursor: "pointer", fontSize: 12 }}>삭제 확인</button>
               <GhostBtn onClick={() => setConfirmDelete(false)} style={{ padding: "7px 12px", fontSize: 12 }}>취소</GhostBtn>
             </div>
-          : <button onClick={() => setConfirmDelete(true)} style={{ background: "transparent", color: "var(--neg)", border: "1px solid var(--neg)", padding: "7px 12px", borderRadius: 7, fontWeight: 500, cursor: "pointer", fontSize: 12 }}>삭제</button>
+          : <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={() => setConfirmDelete(true)} style={{ background: "transparent", color: "var(--neg)", border: "1px solid var(--neg)", padding: "7px 12px", borderRadius: 7, fontWeight: 500, cursor: "pointer", fontSize: 12 }}>삭제</button>
+              <button onClick={() => setF({ ...f, weekExcluded: !f.weekExcluded })} style={{ background: f.weekExcluded ? "var(--warn-soft)" : "transparent", color: "var(--warn)", border: "1px solid var(--warn)", padding: "7px 12px", borderRadius: 7, fontWeight: 500, cursor: "pointer", fontSize: 12 }}>
+                {f.weekExcluded ? "✓ 업데이트 제외중" : "업데이트 제외"}
+              </button>
+            </div>
         }
         <div style={{ display: "flex", gap: 8 }}><GhostBtn onClick={onClose}>취소</GhostBtn><PrimaryBtn onClick={submit}>저장</PrimaryBtn></div>
       </div>
@@ -703,7 +709,12 @@ function EditOutboundModal({ item, onClose, onSave, onDelete }) {
               <button onClick={() => { onDelete(item); onClose(); }} style={{ background: "var(--neg)", color: "#fff", border: "none", padding: "7px 12px", borderRadius: 7, fontWeight: 600, cursor: "pointer", fontSize: 12 }}>삭제 확인</button>
               <GhostBtn onClick={() => setConfirmDelete(false)} style={{ padding: "7px 12px", fontSize: 12 }}>취소</GhostBtn>
             </div>
-          : <button onClick={() => setConfirmDelete(true)} style={{ background: "transparent", color: "var(--neg)", border: "1px solid var(--neg)", padding: "7px 12px", borderRadius: 7, fontWeight: 500, cursor: "pointer", fontSize: 12 }}>삭제</button>
+          : <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={() => setConfirmDelete(true)} style={{ background: "transparent", color: "var(--neg)", border: "1px solid var(--neg)", padding: "7px 12px", borderRadius: 7, fontWeight: 500, cursor: "pointer", fontSize: 12 }}>삭제</button>
+              <button onClick={() => setF({ ...f, weekExcluded: !f.weekExcluded })} style={{ background: f.weekExcluded ? "var(--warn-soft)" : "transparent", color: "var(--warn)", border: "1px solid var(--warn)", padding: "7px 12px", borderRadius: 7, fontWeight: 500, cursor: "pointer", fontSize: 12 }}>
+                {f.weekExcluded ? "✓ 업데이트 제외중" : "업데이트 제외"}
+              </button>
+            </div>
         }
         <div style={{ display: "flex", gap: 8 }}><GhostBtn onClick={onClose}>취소</GhostBtn><PrimaryBtn onClick={submit}>저장</PrimaryBtn></div>
       </div>
@@ -720,8 +731,9 @@ Object.assign(window, { Modal, Field, Input, Sel, Textarea, PrimaryBtn, GhostBtn
 /* eslint-disable */
 const { useState: useStateD, useMemo: useMemoD } = React;
 
-function Dashboard({ data, setTab }) {
+function Dashboard({ data, setData, setTab }) {
   const { deals, inbound, outbound, goals } = data;
+  const [editItem, setEditItem] = useStateD(null);
   const summary = summarizeGoals(goals);
   const monthIdx = CURRENT_MONTH_IDX;
 
@@ -771,6 +783,7 @@ function Dashboard({ data, setTab }) {
   }, [deals]);
 
   return (
+    <>
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Hero KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr", gap: 14 }}>
@@ -927,10 +940,11 @@ function Dashboard({ data, setTab }) {
                   ? fmtDate(r.updatedAt || r.inflowDate)
                   : fmtDate(r.lastUpdate);
                 return (
-                  <div key={i} style={{
+                  <div key={i} onClick={() => setEditItem(r)} style={{
                     display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10,
                     padding: "10px 0",
                     borderBottom: i < Math.min(weeklyActivity.length, 12) - 1 ? "1px dashed var(--line-soft)" : "none",
+                    cursor: "pointer",
                   }}>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 2 }}>
                       <span style={{ width: 6, height: 6, borderRadius: 999, background: dotColor }} />
@@ -956,6 +970,24 @@ function Dashboard({ data, setTab }) {
         </Card>
       </div>
     </div>
+
+    {editItem && editItem._type === "inbound" && (
+      <EditInboundModal
+        item={editItem}
+        onClose={() => setEditItem(null)}
+        onSave={(u) => { setData({ ...data, inbound: data.inbound.map(i => i.name === u.name ? u : i) }); setEditItem(null); }}
+        onDelete={(item) => { setData({ ...data, inbound: data.inbound.filter(i => i.name !== item.name) }); setEditItem(null); }}
+      />
+    )}
+    {editItem && editItem._type === "outbound" && (
+      <EditOutboundModal
+        item={editItem}
+        onClose={() => setEditItem(null)}
+        onSave={(u) => { setData({ ...data, outbound: data.outbound.map(i => i.name === u.name ? u : i) }); setEditItem(null); }}
+        onDelete={(item) => { setData({ ...data, outbound: data.outbound.filter(i => i.name !== item.name) }); setEditItem(null); }}
+      />
+    )}
+    </>
   );
 }
 
@@ -3174,7 +3206,7 @@ function App() {
       {/* Main */}
       <main style={{ padding: "22px 28px 60px", maxWidth: 1500, width: "100%" }}>
         <Header tab={tab} data={data} onNewActivity={openNewActivity} onSync={() => setToast("엑셀 시트 동기화 완료")} />
-        {tab === "dashboard" && <Dashboard data={data} setTab={setTab} />}
+        {tab === "dashboard" && <Dashboard data={data} setData={setData} setTab={setTab} />}
         {tab === "inbound" && <InboundView data={data} setData={setData} onNew={openNewInbound} />}
         {tab === "outbound" && <OutboundView data={data} setData={setData} onNew={openNewOutbound} />}
         {tab === "deals" && <DealsView data={data} onNew={openNewDeal} />}
