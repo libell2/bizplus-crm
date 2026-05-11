@@ -944,68 +944,78 @@ function KpiCard({ label, value, sub, rate, chart }) {
 }
 
 function MonthlyTrajectory({ goals, monthIdx }) {
-  // ref100 = pixel height representing 100% achievement
-  const ref100 = 110;
-  // allow up to 130% overflow headroom
-  const overhead = 28;
+  // 100% line sits at ref100 px from the baseline.
+  // Total chart height = ref100 + headroom (room for >100% bars)
+  const ref100 = 60;   // low on the chart — bars that exceed 100% have lots of space
+  const headroom = 110; // max px above the 100% line (≈ room for ~280% achievement)
+  const chartH = ref100 + headroom; // total bar area height
 
   return (
     <div style={{ marginTop: 8 }}>
-      {/* Chart area: bars grow upward from baseline */}
-      <div style={{ position: "relative" }}>
-        {/* 100% reference line label */}
+      <div style={{ position: "relative", height: chartH + 1 }}>
+
+        {/* 100% dashed reference line */}
         <div style={{
-          position: "absolute", left: 0, top: overhead, right: 0,
-          display: "flex", alignItems: "center", pointerEvents: "none", zIndex: 2,
+          position: "absolute", left: 0, right: 0, bottom: ref100,
+          display: "flex", alignItems: "center", gap: 0, zIndex: 2, pointerEvents: "none",
         }}>
-          <span style={{ fontSize: 9, fontWeight: 700, color: "var(--accent)", fontFamily: "JetBrains Mono", background: "var(--bg-elev)", paddingRight: 4, lineHeight: 1 }}>100%</span>
-          <div style={{ flex: 1, borderTop: "1.5px dashed var(--accent)" }} />
+          <span style={{
+            fontSize: 9, fontWeight: 700, color: "var(--ink-2)",
+            fontFamily: "JetBrains Mono", background: "var(--bg-elev)",
+            paddingRight: 4, lineHeight: 1, whiteSpace: "nowrap",
+          }}>100%</span>
+          <div style={{ flex: 1, borderTop: "1.5px dashed var(--ink-3)", opacity: 0.5 }} />
         </div>
 
-        {/* Bars */}
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 4, paddingTop: overhead + ref100 + 4 + 20 }}>
+        {/* Bars (anchored to bottom) */}
+        <div style={{
+          position: "absolute", bottom: 0, left: 0, right: 0,
+          display: "flex", alignItems: "flex-end", gap: 3, height: chartH,
+        }}>
           {goals.monthlyGoal.map((g, i) => {
             const a = Number(goals.monthlyActual[i]) || 0;
             const isPast = i <= monthIdx;
             const isCurrent = i === monthIdx;
             const rate = g > 0 ? a / g : 0;
-            // bar height: rate * ref100, capped at ref100 + overhead
-            const barPx = isPast && g > 0 ? Math.min(Math.round(rate * ref100), ref100 + overhead - 2) : 0;
-            const barColor = !isPast ? "var(--line-soft)" : rate >= 1 ? "#1d6b48" : rate >= 0.7 ? "#5a67d8" : "#c79518";
             const pct = g > 0 ? Math.round(rate * 100) : null;
+            // bar height = rate * ref100, uncapped (just overflow hidden at top)
+            const barPx = isPast && g > 0 ? Math.min(Math.round(rate * ref100), chartH - 2) : 0;
+            // color scheme: past = grey, current = blue
+            const barColor = isCurrent ? "#3b82f6" : isPast ? "#94a3b8" : "var(--bg-sunken)";
+            const pctColor = isCurrent ? "#ef4444" : "var(--ink-3)";
 
             return (
-              <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
-                {/* % label pinned above bar */}
-                <div style={{
-                  position: "absolute", bottom: barPx + 3, left: 0, right: 0,
-                  textAlign: "center", fontSize: 9, fontWeight: 700,
-                  fontFamily: "JetBrains Mono", lineHeight: 1,
-                  color: !isPast ? "transparent" : rate >= 1 ? "#1d6b48" : rate >= 0.7 ? "#5a67d8" : "#c79518",
-                }}>
-                  {isPast && pct !== null ? pct + "%" : ""}
-                </div>
+              <div key={i} style={{ flex: 1, position: "relative", height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+                {/* % label — above the bar, red for current month */}
+                {isPast && pct !== null && (
+                  <div style={{
+                    position: "absolute", bottom: barPx + 3, left: 0, right: 0,
+                    textAlign: "center", fontSize: 9, fontWeight: 700,
+                    fontFamily: "JetBrains Mono", lineHeight: 1,
+                    color: pctColor,
+                  }}>
+                    {pct}%
+                  </div>
+                )}
                 {/* Bar */}
                 <div style={{
                   width: "100%",
                   height: Math.max(barPx, isPast && g > 0 ? 2 : 0),
                   background: barColor,
                   borderRadius: "3px 3px 0 0",
-                  transition: "height 600ms cubic-bezier(.2,.8,.2,1)",
-                  boxShadow: isCurrent ? "0 0 0 1.5px var(--accent)" : "none",
-                  opacity: 0.88,
-                }} title={`${MONTHS[i]}: 실적 ${KRW(a)} / 목표 ${KRW(g)} (${pct ?? "—"}%)`} />
+                  transition: "height 700ms cubic-bezier(.2,.8,.2,1)",
+                }} title={`${MONTHS[i]}: 실적 ${KRW(a)} / 목표 ${KRW(g)}${pct != null ? " (" + pct + "%)" : ""}`} />
               </div>
             );
           })}
         </div>
 
         {/* Baseline */}
-        <div style={{ borderTop: "1px solid var(--line)", marginTop: 0 }} />
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, borderTop: "1px solid var(--line)" }} />
       </div>
 
-      {/* Month + goal labels */}
-      <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
+      {/* Month labels */}
+      <div style={{ display: "flex", gap: 3, marginTop: 5 }}>
         {MONTHS.map((m, i) => (
           <div key={m} style={{ flex: 1, textAlign: "center" }}>
             <div style={{ fontSize: 10, color: i === monthIdx ? "var(--ink)" : "var(--ink-3)", fontWeight: i === monthIdx ? 700 : 400 }}>{m}</div>
@@ -1017,16 +1027,13 @@ function MonthlyTrajectory({ goals, monthIdx }) {
       {/* Legend */}
       <div style={{ display: "flex", gap: 14, justifyContent: "flex-end", alignItems: "center", marginTop: 10, fontSize: 10.5, color: "var(--ink-3)" }}>
         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ display: "inline-block", width: 18, borderTop: "1.5px dashed var(--accent)" }} />목표 100%
+          <span style={{ display: "inline-block", width: 18, borderTop: "1.5px dashed var(--ink-3)", opacity: 0.5 }} />목표 100%
         </span>
         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ display: "inline-block", width: 10, height: 10, background: "#1d6b48", borderRadius: 2, opacity: 0.88 }} />≥100%
+          <span style={{ display: "inline-block", width: 10, height: 10, background: "#3b82f6", borderRadius: 2 }} />이번 달
         </span>
         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ display: "inline-block", width: 10, height: 10, background: "#5a67d8", borderRadius: 2, opacity: 0.88 }} />70~99%
-        </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ display: "inline-block", width: 10, height: 10, background: "#c79518", borderRadius: 2, opacity: 0.88 }} />~70%
+          <span style={{ display: "inline-block", width: 10, height: 10, background: "#94a3b8", borderRadius: 2 }} />지난 달
         </span>
       </div>
     </div>
