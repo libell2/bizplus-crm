@@ -685,7 +685,7 @@ function EditOutboundModal({ item, onClose, onSave, onDelete }) {
   const [confirmDelete, setConfirmDelete] = useStateM(false);
   const submit = () => {
     if (!f.name) return alert("기업명을 입력해주세요");
-    onSave({ ...f, lastUpdate: new Date().toISOString().slice(0, 10) });
+    onSave({ ...f });
   };
   return (
     <Modal title={`편집: ${item.name}`} onClose={onClose} size="lg">
@@ -694,6 +694,8 @@ function EditOutboundModal({ item, onClose, onSave, onDelete }) {
         <Field label="임직원수"><Input value={String(f.employees || "")} onChange={e => setF({ ...f, employees: e.target.value })} /></Field>
         <Field label="지역"><Input value={f.region || ""} onChange={e => setF({ ...f, region: e.target.value })} /></Field>
         <Field label="서비스"><Sel value={f.service || "복지"} onChange={v => setF({ ...f, service: v })} options={["복지", "식권", "식권금액형", "식권쿠폰형", "식권(발송형)", "복지포인트"]} /></Field>
+        <Field label="마지막 업데이트"><Input type="date" value={f.lastUpdate && f.lastUpdate !== "미컨택" ? f.lastUpdate : ""} onChange={e => setF({ ...f, lastUpdate: e.target.value })} /></Field>
+        <Field label="미팅일자"><Input type="date" value={f.meetingDate || ""} onChange={e => setF({ ...f, meetingDate: e.target.value })} /></Field>
       </div>
       <Field label="고객 담당자"><Input value={f.contactName || ""} onChange={e => setF({ ...f, contactName: e.target.value })} /></Field>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
