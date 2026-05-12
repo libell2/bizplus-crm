@@ -935,23 +935,12 @@ function Dashboard({ data, setData, setTab }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 0, maxHeight: 360, overflowY: "auto" }}>
               {weeklyActivity.map((r, i) => {
                 const isInb = r._type === "inbound";
-                const inbStatuses = ["검토중","도입확정","오픈","보류","실패"];
-                const obStatuses = ["신규 컨택","검토 중","미팅 예정","오픈 확정","미컨택"];
-                const curStatus = isInb ? r.status : (r.outboundStatus || "검토 중");
                 const dotColor = isInb
                   ? (STATUS_META[r.status]?.dot || "#888")
                   : (OUTBOUND_STATUS_META[r.outboundStatus]?.dot || "#5a67d8");
                 const dateStr = isInb
                   ? fmtDate(r.updatedAt || r.inflowDate)
                   : fmtDate(r.lastUpdate);
-                const today = new Date().toISOString().slice(0, 10);
-                const updateStatus = (newStatus) => {
-                  if (isInb) {
-                    setData({ ...data, inbound: data.inbound.map(it => it.name === r.name ? { ...it, status: newStatus, updatedAt: today } : it) });
-                  } else {
-                    setData({ ...data, outbound: data.outbound.map(it => it.name === r.name ? { ...it, outboundStatus: newStatus, lastUpdate: today } : it) });
-                  }
-                };
                 const updateMemo = (memo) => {
                   if (isInb) {
                     setData({ ...data, inbound: data.inbound.map(it => it.name === r.name ? { ...it, weeklyMemo: memo } : it) });
@@ -975,14 +964,10 @@ function Dashboard({ data, setData, setTab }) {
                         </div>
                       </div>
                       <div style={{ textAlign: "right" }}>
-                        <select
-                          value={curStatus}
-                          onClick={e => e.stopPropagation()}
-                          onChange={e => { e.stopPropagation(); updateStatus(e.target.value); }}
-                          style={{ border: "1px solid var(--line)", borderRadius: 6, padding: "3px 6px", fontSize: 11, fontFamily: "inherit", background: "var(--bg-elev)", cursor: "pointer", color: "var(--ink-2)" }}
-                        >
-                          {(isInb ? inbStatuses : obStatuses).map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        {isInb
+                          ? <StatusPill status={r.status} size="sm" />
+                          : <Pill tone={OUTBOUND_STATUS_META[r.outboundStatus]?.tone || "neutral"} size="sm">{r.outboundStatus || "검토 중"}</Pill>
+                        }
                         <div className="mono" style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 4 }}>{dateStr}</div>
                       </div>
                     </div>
