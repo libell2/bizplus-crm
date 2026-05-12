@@ -1292,11 +1292,23 @@ function InboundView({ data, setData, onNew }) {
         }}>+ 신규 인입</button>
       </Card>
 
-      {/* Stats strip */}
+      {/* Stats strip — counts by status, applying all filters except status */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
         {["검토중", "도입확정", "오픈", "보류", "실패"].map(s => {
-          const count = data.inbound.filter(i => i.status === s).length;
-          const employees = data.inbound.filter(i => i.status === s).reduce((a, x) => a + (Number(x.employees) || 0), 0);
+          const base = data.inbound.filter(r => {
+            if (filter.owner !== "전체" && r.owner !== filter.owner) return false;
+            if (filter.service !== "전체" && r.service !== filter.service) return false;
+            if (filter.region !== "전체" && !(r.region || "").includes(filter.region)) return false;
+            if (filter.year !== "전체" && getInboundYear(r) !== filter.year) return false;
+            if (filter.period !== "전체") {
+              if (filter.period === "상반기" || filter.period === "하반기") { if (getInboundHalf(r) !== filter.period) return false; }
+              else { if (getInboundPeriod(r) !== filter.period) return false; }
+            }
+            if (filter.q) { const q = filter.q.toLowerCase(); if (!`${r.name||""} ${r.contactName||""} ${r.detail||""} ${r.region||""}`.toLowerCase().includes(q)) return false; }
+            return true;
+          });
+          const count = base.filter(i => i.status === s).length;
+          const employees = base.filter(i => i.status === s).reduce((a, x) => a + (Number(x.employees) || 0), 0);
           const m = STATUS_META[s];
           return (
             <Card key={s} padding={14} style={{ borderLeft: `3px solid ${m.dot}`, borderRadius: 8 }}>
