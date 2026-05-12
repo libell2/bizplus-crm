@@ -1199,7 +1199,7 @@ const getInboundHalf = r => {
 };
 
 function InboundView({ data, setData, onNew }) {
-  const [filter, setFilter] = useStateI({ status: "전체", owner: "전체", service: "전체", region: "전체", year: "전체", period: "전체", q: "" });
+  const [filter, setFilter] = useStateI({ status: "전체", owner: "전체", service: "전체", region: "전체", year: "2026", period: "전체", q: "" });
   const [sort, setSort] = useStateI({ key: "inflowDate", dir: "desc" });
   const [view, setView] = useStateI("kanban"); // kanban | list
   const [editItem, setEditItem] = useStateI(null);
@@ -1242,7 +1242,7 @@ function InboundView({ data, setData, onNew }) {
     });
   }, [data.inbound, filter, sort]);
 
-  const resetFilters = () => setFilter({ status: "전체", owner: "전체", service: "전체", region: "전체", year: "전체", period: "전체", q: "" });
+  const resetFilters = () => setFilter({ status: "전체", owner: "전체", service: "전체", region: "전체", year: "2026", period: "전체", q: "" });
   const activeFilterCount = Object.entries(filter).filter(([k, v]) => v && v !== "전체").length;
 
   const owners = ["전체", ...Array.from(new Set(data.inbound.map(i => i.owner).filter(Boolean)))];
