@@ -3103,100 +3103,23 @@ Object.assign(window, { AutomationView });
 /* eslint-disable */
 const { useState: useStateA, useEffect: useEffectA } = React;
 
-async function exportCRMToExcel(data) {
-  try {
-    const base = window.location.pathname.replace(/\/[^/]*$/, '') || '';
-    const resp = await fetch(base + '/export-template.xlsx');
-    if (!resp.ok) throw new Error('템플릿 로드 실패');
-    const ab = await resp.arrayBuffer();
-    const wb = XLSX.read(ab, { type: 'array', cellDates: true });
-
-    const toDate = d => {
-      if (!d) return null;
-      if (d instanceof Date) return d;
-      if (typeof d === 'string' && d.length >= 10) return new Date(d + 'T00:00:00');
-      if (typeof d === 'number') {
-        return new Date(Date.UTC(1899, 11, 30) + d * 86400000);
-      }
-      return null;
-    };
-    const setCell = (ws, r, c, val) => {
-      if (val === null || val === undefined || val === '') return;
-      const addr = XLSX.utils.encode_cell({ r, c });
-      if (val instanceof Date && !isNaN(val)) {
-        ws[addr] = { t: 'd', v: val, z: 'yyyy-mm-dd' };
-      } else if (typeof val === 'number') {
-        ws[addr] = { t: 'n', v: val };
-      } else {
-        ws[addr] = { t: 's', v: String(val) };
-      }
-    };
-    const monthKR = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-
-    // === 26인바운드관리: 26년 데이터 row 337부터 (0-idx: 336) 교체 ===
-    const wsInb = wb.Sheets['26인바운드관리'];
-    const inbRange = XLSX.utils.decode_range(wsInb['!ref']);
-    for (let r = 336; r <= inbRange.e.r; r++)
-      for (let c = 0; c <= inbRange.e.c; c++)
-        delete wsInb[XLSX.utils.encode_cell({ r, c })];
-
-    const inb26 = data.inbound
-      .filter(r => (r.inflowYear || (typeof r.inflowDate === 'string' ? r.inflowDate.slice(0,4) : null)) === '2026')
-      .sort((a, b) => String(a.inflowDate || '').localeCompare(String(b.inflowDate || '')));
-
-    inb26.forEach((r, i) => {
-      const row = 336 + i;
-      const inflowDate = toDate(r.inflowDate);
-      const meetingDate = toDate(r.meetingDate);
-      const mo = inflowDate ? monthKR[inflowDate.getMonth()] : '';
-      setCell(wsInb, row, 1, mo);
-      setCell(wsInb, row, 2, inflowDate);
-      setCell(wsInb, row, 3, inflowDate);
-      setCell(wsInb, row, 4, meetingDate);
-      setCell(wsInb, row, 5, r.status || '');
-      setCell(wsInb, row, 6, r.name || '');
-      setCell(wsInb, row, 7, Number(r.employees) || null);
-      setCell(wsInb, row, 8, r.region || '');
-      setCell(wsInb, row, 9, r.service || '');
-      setCell(wsInb, row, 10, r.detail || '');
-      setCell(wsInb, row, 12, r.contactName || '');
-      setCell(wsInb, row, 13, r.phone || '');
-      setCell(wsInb, row, 14, r.email || '');
-      setCell(wsInb, row, 15, r.owner || '');
-    });
-    wsInb['!ref'] = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r: 335 + Math.max(inb26.length, 1), c: 16} });
-
-    // === 26아웃바운드관리: row 9부터 (0-idx: 8) 교체 ===
-    const wsOut = wb.Sheets['26아웃바운드관리'];
-    const outRange = XLSX.utils.decode_range(wsOut['!ref']);
-    for (let r = 8; r <= outRange.e.r; r++)
-      for (let c = 0; c <= outRange.e.c; c++)
-        delete wsOut[XLSX.utils.encode_cell({ r, c })];
-
-    data.outbound.forEach((r, i) => {
-      const row = 8 + i;
-      const lastUpd = r.lastUpdate && r.lastUpdate !== '미컨택' ? toDate(r.lastUpdate) : null;
-      const mtgDate = toDate(r.meetingDate);
-      setCell(wsOut, row, 1, r.name || '');
-      setCell(wsOut, row, 2, r.employees === '-' ? null : (Number(r.employees) || null));
-      setCell(wsOut, row, 3, r.region || '');
-      setCell(wsOut, row, 4, lastUpd);
-      setCell(wsOut, row, 5, mtgDate);
-      setCell(wsOut, row, 6, r.service || '');
-      setCell(wsOut, row, 7, r.detail || '');
-      setCell(wsOut, row, 8, r.contactName || '');
-      setCell(wsOut, row, 9, r.phone || '');
-      setCell(wsOut, row, 10, r.email || '');
-      setCell(wsOut, row, 11, r.note || '');
-    });
-    wsOut['!ref'] = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r: 7 + Math.max(data.outbound.length, 1), c: 11} });
-
-    const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
-    XLSX.writeFile(wb, `비즈플러스_CRM_${today}.xlsx`);
-  } catch(e) {
-    alert('엑셀 내보내기 실패: ' + e.message);
-    console.error(e);
-  }
+function exportCRMToExcel(data) {
+  // JSON으로 내보내기 → export_excel.py 스크립트로 서식 완벽 보존 Excel 생성
+  const json = JSON.stringify({ inbound: data.inbound, outbound: data.outbound, deals: data.deals }, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `crm_data_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  setTimeout(() => alert(
+    '✅ crm_data_XXXXXX.json 다운로드 완료\n\n' +
+    '엑셀 파일 생성 방법:\n' +
+    '1. 레포 폴더에서 터미널 열기\n' +
+    '2. pip install openpyxl  (최초 1회)\n' +
+    '3. python3 export_excel.py crm_data_XXXXXX.json'
+  ), 100);
 }
 
 function App() {
@@ -3403,7 +3326,7 @@ function Header({ tab, data, onNewActivity, onSync, onExport }) {
           background: "var(--pos-soft)", color: "var(--pos)",
           border: "1px solid var(--pos)", padding: "8px 12px",
           borderRadius: 8, fontSize: 12.5, fontWeight: 500, cursor: "pointer",
-        }}>↓ 엑셀 내보내기</button>
+        }}>↓ JSON 내보내기</button>
         <button onClick={onSync} style={{
           background: "var(--bg-elev)", color: "var(--ink-2)",
           border: "1px solid var(--line)", padding: "8px 12px",
