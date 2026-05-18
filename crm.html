@@ -772,11 +772,17 @@ function Dashboard({ data, setData, setTab }) {
   const weeklyActivity = useMemoD(() => {
     const wib = inbound
       .filter(r => isUpdatedThisWeek(r, salesWeek.start, salesWeek.end, "inbound"))
-      .map(r => ({ ...r, _type: "inbound" }));
+      .map(r => ({ ...r, _type: "inbound", _dateKey: r.updatedAt || (typeof r.inflowDate === "string" ? r.inflowDate.slice(0,10) : "") }));
     const wob = outbound
       .filter(r => isUpdatedThisWeek(r, salesWeek.start, salesWeek.end, "outbound"))
-      .map(r => ({ ...r, _type: "outbound" }));
-    return [...wib, ...wob];
+      .map(r => ({ ...r, _type: "outbound", _dateKey: r.lastUpdate && r.lastUpdate !== "미컨택" ? r.lastUpdate.slice(0,10) : "" }));
+    const all = [...wib, ...wob];
+    return all.sort((a, b) => {
+      const aHasMemo = !!(a.weeklyMemo && a.weeklyMemo.trim());
+      const bHasMemo = !!(b.weeklyMemo && b.weeklyMemo.trim());
+      if (aHasMemo !== bHasMemo) return aHasMemo ? -1 : 1;
+      return b._dateKey.localeCompare(a._dateKey);
+    });
   }, [inbound, outbound, salesWeek]);
 
   // Top deals this period
