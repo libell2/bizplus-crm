@@ -372,7 +372,7 @@ const { useState: useStateM } = React;
 function Modal({ title, onClose, children, size = "md" }) {
   const widths = { sm: 420, md: 560, lg: 720 };
   return (
-    <div onClick={onClose} style={{
+    <div style={{
       position: "fixed", inset: 0, background: "rgba(20,18,12,0.45)",
       backdropFilter: "blur(4px)", zIndex: 100,
       display: "flex", alignItems: "center", justifyContent: "center",
