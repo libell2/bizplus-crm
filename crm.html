@@ -3103,6 +3103,102 @@ Object.assign(window, { AutomationView });
 /* eslint-disable */
 const { useState: useStateA, useEffect: useEffectA } = React;
 
+async function exportCRMToExcel(data) {
+  try {
+    const base = window.location.pathname.replace(/\/[^/]*$/, '') || '';
+    const resp = await fetch(base + '/export-template.xlsx');
+    if (!resp.ok) throw new Error('템플릿 로드 실패');
+    const ab = await resp.arrayBuffer();
+    const wb = XLSX.read(ab, { type: 'array', cellDates: true });
+
+    const toDate = d => {
+      if (!d) return null;
+      if (d instanceof Date) return d;
+      if (typeof d === 'string' && d.length >= 10) return new Date(d + 'T00:00:00');
+      if (typeof d === 'number') {
+        return new Date(Date.UTC(1899, 11, 30) + d * 86400000);
+      }
+      return null;
+    };
+    const setCell = (ws, r, c, val) => {
+      if (val === null || val === undefined || val === '') return;
+      const addr = XLSX.utils.encode_cell({ r, c });
+      if (val instanceof Date && !isNaN(val)) {
+        ws[addr] = { t: 'd', v: val, z: 'yyyy-mm-dd' };
+      } else if (typeof val === 'number') {
+        ws[addr] = { t: 'n', v: val };
+      } else {
+        ws[addr] = { t: 's', v: String(val) };
+      }
+    };
+    const monthKR = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
+    // === 26인바운드관리: 26년 데이터 row 337부터 (0-idx: 336) 교체 ===
+    const wsInb = wb.Sheets['26인바운드관리'];
+    const inbRange = XLSX.utils.decode_range(wsInb['!ref']);
+    for (let r = 336; r <= inbRange.e.r; r++)
+      for (let c = 0; c <= inbRange.e.c; c++)
+        delete wsInb[XLSX.utils.encode_cell({ r, c })];
+
+    const inb26 = data.inbound
+      .filter(r => (r.inflowYear || (typeof r.inflowDate === 'string' ? r.inflowDate.slice(0,4) : null)) === '2026')
+      .sort((a, b) => String(a.inflowDate || '').localeCompare(String(b.inflowDate || '')));
+
+    inb26.forEach((r, i) => {
+      const row = 336 + i;
+      const inflowDate = toDate(r.inflowDate);
+      const meetingDate = toDate(r.meetingDate);
+      const mo = inflowDate ? monthKR[inflowDate.getMonth()] : '';
+      setCell(wsInb, row, 1, mo);
+      setCell(wsInb, row, 2, inflowDate);
+      setCell(wsInb, row, 3, inflowDate);
+      setCell(wsInb, row, 4, meetingDate);
+      setCell(wsInb, row, 5, r.status || '');
+      setCell(wsInb, row, 6, r.name || '');
+      setCell(wsInb, row, 7, Number(r.employees) || null);
+      setCell(wsInb, row, 8, r.region || '');
+      setCell(wsInb, row, 9, r.service || '');
+      setCell(wsInb, row, 10, r.detail || '');
+      setCell(wsInb, row, 12, r.contactName || '');
+      setCell(wsInb, row, 13, r.phone || '');
+      setCell(wsInb, row, 14, r.email || '');
+      setCell(wsInb, row, 15, r.owner || '');
+    });
+    wsInb['!ref'] = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r: 335 + Math.max(inb26.length, 1), c: 16} });
+
+    // === 26아웃바운드관리: row 9부터 (0-idx: 8) 교체 ===
+    const wsOut = wb.Sheets['26아웃바운드관리'];
+    const outRange = XLSX.utils.decode_range(wsOut['!ref']);
+    for (let r = 8; r <= outRange.e.r; r++)
+      for (let c = 0; c <= outRange.e.c; c++)
+        delete wsOut[XLSX.utils.encode_cell({ r, c })];
+
+    data.outbound.forEach((r, i) => {
+      const row = 8 + i;
+      const lastUpd = r.lastUpdate && r.lastUpdate !== '미컨택' ? toDate(r.lastUpdate) : null;
+      const mtgDate = toDate(r.meetingDate);
+      setCell(wsOut, row, 1, r.name || '');
+      setCell(wsOut, row, 2, r.employees === '-' ? null : (Number(r.employees) || null));
+      setCell(wsOut, row, 3, r.region || '');
+      setCell(wsOut, row, 4, lastUpd);
+      setCell(wsOut, row, 5, mtgDate);
+      setCell(wsOut, row, 6, r.service || '');
+      setCell(wsOut, row, 7, r.detail || '');
+      setCell(wsOut, row, 8, r.contactName || '');
+      setCell(wsOut, row, 9, r.phone || '');
+      setCell(wsOut, row, 10, r.email || '');
+      setCell(wsOut, row, 11, r.note || '');
+    });
+    wsOut['!ref'] = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r: 7 + Math.max(data.outbound.length, 1), c: 11} });
+
+    const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    XLSX.writeFile(wb, `비즈플러스_CRM_${today}.xlsx`);
+  } catch(e) {
+    alert('엑셀 내보내기 실패: ' + e.message);
+    console.error(e);
+  }
+}
+
 function App() {
   const [data, setData] = useStateA(null);
   const [tab, setTab] = useStateA("dashboard");
@@ -3238,7 +3334,7 @@ function App() {
 
       {/* Main */}
       <main style={{ padding: "22px 28px 60px", maxWidth: 1500, width: "100%" }}>
-        <Header tab={tab} data={data} onNewActivity={openNewActivity} onSync={() => setToast("엑셀 시트 동기화 완료")} />
+        <Header tab={tab} data={data} onNewActivity={openNewActivity} onSync={() => setToast("엑셀 시트 동기화 완료")} onExport={() => exportCRMToExcel(data)} />
         {tab === "dashboard" && <Dashboard data={data} setData={setData} setTab={setTab} />}
         {tab === "inbound" && <InboundView data={data} setData={setData} onNew={openNewInbound} />}
         {tab === "outbound" && <OutboundView data={data} setData={setData} onNew={openNewOutbound} />}
@@ -3281,7 +3377,7 @@ function NavItem({ icon, label, badge, active, onClick, disabled }) {
   );
 }
 
-function Header({ tab, data, onNewActivity, onSync }) {
+function Header({ tab, data, onNewActivity, onSync, onExport }) {
   const titles = {
     dashboard: { title: "대시보드", sub: "팀 전체 매출·영업 현황 실시간 모니터링" },
     inbound: { title: "인바운드 관리", sub: `2026년 인입 ${data.inbound.length}건 · 오픈비율 ${((data.inbound.filter(i=>i.status==="오픈").length / data.inbound.length) * 100).toFixed(1)}%` },
@@ -3303,10 +3399,15 @@ function Header({ tab, data, onNewActivity, onSync }) {
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <LiveDot />
         <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>마지막 동기화 방금 전</span>
+        <button onClick={onExport} style={{
+          background: "var(--pos-soft)", color: "var(--pos)",
+          border: "1px solid var(--pos)", padding: "8px 12px",
+          borderRadius: 8, fontSize: 12.5, fontWeight: 500, cursor: "pointer",
+        }}>↓ 엑셀 내보내기</button>
         <button onClick={onSync} style={{
           background: "var(--bg-elev)", color: "var(--ink-2)",
           border: "1px solid var(--line)", padding: "8px 12px",
-          borderRadius: 8, fontSize: 12.5, fontWeight: 500, cursor: "pointer", marginLeft: 6,
+          borderRadius: 8, fontSize: 12.5, fontWeight: 500, cursor: "pointer",
         }}>↗ 엑셀 동기화</button>
         <button onClick={onNewActivity} style={{
           background: "var(--ink)", color: "#fff",
