@@ -1410,9 +1410,18 @@ function Kanban({ items, setData, data, onEdit, salesWeek }) {
                     )}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid var(--line-soft)", paddingTop: 6 }}>
                       <Avatar name={item.owner} size={18} />
-                      <span className="mono" style={{ fontSize: 10, color: "var(--ink-4)" }}>
-                        {fmtDate(item.inflowDate)}
-                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span className="mono" style={{ fontSize: 10, color: "var(--ink-4)" }}>
+                          {fmtDate(item.updatedAt || item.inflowDate)}
+                        </span>
+                        <button onClick={e => {
+                          e.stopPropagation();
+                          const today = new Date().toISOString().slice(0, 10);
+                          setData({ ...data, inbound: data.inbound.map(it => it.name === item.name ? { ...it, updatedAt: today } : it) });
+                        }} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "var(--accent-soft)", color: "var(--accent)", border: "none", cursor: "pointer", fontWeight: 600 }}>
+                          업데이트
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1765,9 +1774,18 @@ function OutboundKanban({ items, data, setData, inferStatus, onEdit, salesWeek }
                     )}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid var(--line-soft)", paddingTop: 6 }}>
                       <span style={{ fontSize: 10.5, fontWeight: 500, color: "var(--ink-2)" }}>{item.contactName || "—"}</span>
-                      <span className="mono" style={{ fontSize: 9.5, color: days != null && days > 30 ? "var(--neg)" : "var(--ink-4)" }}>
-                        {item.lastUpdate === "미컨택" ? "미컨택" : days != null ? days + "일 전" : item.lastUpdate || "—"}
-                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span className="mono" style={{ fontSize: 9.5, color: days != null && days > 30 ? "var(--neg)" : "var(--ink-4)" }}>
+                          {item.lastUpdate === "미컨택" ? "미컨택" : days != null ? days + "일 전" : item.lastUpdate || "—"}
+                        </span>
+                        <button onClick={e => {
+                          e.stopPropagation();
+                          const today = new Date().toISOString().slice(0, 10);
+                          setData({ ...data, outbound: data.outbound.map(it => it.name === item.name ? { ...it, lastUpdate: today } : it) });
+                        }} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "var(--accent-soft)", color: "var(--accent)", border: "none", cursor: "pointer", fontWeight: 600 }}>
+                          업데이트
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
