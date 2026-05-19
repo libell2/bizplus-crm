@@ -733,6 +733,59 @@ Object.assign(window, { Modal, Field, Input, Sel, Textarea, PrimaryBtn, GhostBtn
 /* eslint-disable */
 const { useState: useStateD, useMemo: useMemoD } = React;
 
+function WeeklyActivityRow({ r, i, total, setEditItem, data, setData }) {
+  const [memoVal, setMemoVal] = useStateD(r.weeklyMemo || "");
+  const isInb = r._type === "inbound";
+  const dotColor = isInb
+    ? (STATUS_META[r.status]?.dot || "#888")
+    : (OUTBOUND_STATUS_META[r.outboundStatus]?.dot || "#5a67d8");
+  const dateStr = isInb
+    ? fmtDate(r.updatedAt || r.inflowDate)
+    : fmtDate(r.lastUpdate);
+  const saveMemo = (memo) => {
+    if (isInb) {
+      setData({ ...data, inbound: data.inbound.map(it => it.name === r.name ? { ...it, weeklyMemo: memo } : it) });
+    } else {
+      setData({ ...data, outbound: data.outbound.map(it => it.name === r.name ? { ...it, weeklyMemo: memo } : it) });
+    }
+  };
+  return (
+    <div style={{ padding: "10px 0", borderBottom: i < total - 1 ? "1px dashed var(--line-soft)" : "none" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10, alignItems: "start" }}>
+        <div style={{ display: "flex", alignItems: "center", paddingTop: 3 }}>
+          <span style={{ width: 6, height: 6, borderRadius: 999, background: dotColor }} />
+        </div>
+        <div onClick={() => setEditItem(r)} style={{ cursor: "pointer" }}>
+          <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, color: "#ef4444" }}>{r.name}</div>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
+            {isInb ? "인바운드" : "아웃바운드"} · {r.service} · {r.region || "—"}
+          </div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          {isInb
+            ? <StatusPill status={r.status} size="sm" />
+            : <Pill tone={OUTBOUND_STATUS_META[r.outboundStatus]?.tone || "neutral"} size="sm">{r.outboundStatus || "검토 중"}</Pill>
+          }
+          <div className="mono" style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 4 }}>{dateStr}</div>
+        </div>
+      </div>
+      <input
+        placeholder=""
+        value={memoVal}
+        onClick={e => e.stopPropagation()}
+        onChange={e => setMemoVal(e.target.value)}
+        onBlur={e => { if (memoVal !== (r.weeklyMemo || "")) saveMemo(memoVal); }}
+        style={{
+          marginTop: 7, marginLeft: 16, width: "calc(100% - 16px)",
+          border: "none", borderBottom: "1px solid var(--line-soft)",
+          padding: "4px 2px", fontSize: 12, fontFamily: "inherit",
+          background: "transparent", color: "var(--ink-2)", outline: "none",
+        }}
+      />
+    </div>
+  );
+}
+
 function Dashboard({ data, setData, setTab }) {
   const { deals, inbound, outbound, goals } = data;
   const [editItem, setEditItem] = useStateD(null);
@@ -939,59 +992,17 @@ function Dashboard({ data, setData, setTab }) {
             <div style={{ textAlign: "center", color: "var(--ink-4)", fontSize: 12, padding: "28px 0" }}>이번 영업주 활동 없음</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 0, maxHeight: 360, overflowY: "auto" }}>
-              {weeklyActivity.map((r, i) => {
-                const isInb = r._type === "inbound";
-                const dotColor = isInb
-                  ? (STATUS_META[r.status]?.dot || "#888")
-                  : (OUTBOUND_STATUS_META[r.outboundStatus]?.dot || "#5a67d8");
-                const dateStr = isInb
-                  ? fmtDate(r.updatedAt || r.inflowDate)
-                  : fmtDate(r.lastUpdate);
-                const updateMemo = (memo) => {
-                  if (isInb) {
-                    setData({ ...data, inbound: data.inbound.map(it => it.name === r.name ? { ...it, weeklyMemo: memo } : it) });
-                  } else {
-                    setData({ ...data, outbound: data.outbound.map(it => it.name === r.name ? { ...it, weeklyMemo: memo } : it) });
-                  }
-                };
-                return (
-                  <div key={i} style={{
-                    padding: "10px 0",
-                    borderBottom: i < weeklyActivity.length - 1 ? "1px dashed var(--line-soft)" : "none",
-                  }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10, alignItems: "start" }}>
-                      <div style={{ display: "flex", alignItems: "center", paddingTop: 3 }}>
-                        <span style={{ width: 6, height: 6, borderRadius: 999, background: dotColor }} />
-                      </div>
-                      <div onClick={() => setEditItem(r)} style={{ cursor: "pointer" }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, color: "#ef4444" }}>{r.name}</div>
-                        <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
-                          {isInb ? "인바운드" : "아웃바운드"} · {r.service} · {r.region || "—"}
-                        </div>
-                      </div>
-                      <div style={{ textAlign: "right" }}>
-                        {isInb
-                          ? <StatusPill status={r.status} size="sm" />
-                          : <Pill tone={OUTBOUND_STATUS_META[r.outboundStatus]?.tone || "neutral"} size="sm">{r.outboundStatus || "검토 중"}</Pill>
-                        }
-                        <div className="mono" style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 4 }}>{dateStr}</div>
-                      </div>
-                    </div>
-                    <input
-                      placeholder=""
-                      value={r.weeklyMemo || ""}
-                      onClick={e => e.stopPropagation()}
-                      onChange={e => updateMemo(e.target.value)}
-                      style={{
-                        marginTop: 7, marginLeft: 16, width: "calc(100% - 16px)",
-                        border: "none", borderBottom: "1px solid var(--line-soft)",
-                        padding: "4px 2px", fontSize: 12, fontFamily: "inherit",
-                        background: "transparent", color: "var(--ink-2)", outline: "none",
-                      }}
-                    />
-                  </div>
-                );
-              })}
+              {weeklyActivity.map((r, i) => (
+                <WeeklyActivityRow
+                  key={r.name + r._type}
+                  r={r}
+                  i={i}
+                  total={weeklyActivity.length}
+                  setEditItem={setEditItem}
+                  data={data}
+                  setData={setData}
+                />
+              ))}
             </div>
           )}
         </Card>
