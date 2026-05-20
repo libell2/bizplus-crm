@@ -789,6 +789,7 @@ function WeeklyActivityRow({ r, i, total, setEditItem, data, setData }) {
 function Dashboard({ data, setData, setTab }) {
   const { deals, inbound, outbound, goals } = data;
   const [editItem, setEditItem] = useStateD(null);
+  const [toast, setToast] = useStateD(null);
   const summary = summarizeGoals(goals);
   const monthIdx = CURRENT_MONTH_IDX;
 
@@ -1013,7 +1014,7 @@ function Dashboard({ data, setData, setTab }) {
       <EditInboundModal
         item={editItem}
         onClose={() => setEditItem(null)}
-        onSave={(u) => { const { _origName, ...rec } = u; setData(prev => ({ ...prev, inbound: prev.inbound.map(i => i.name === (_origName || rec.name) ? rec : i) })); setEditItem(null); }}
+        onSave={(u) => { const { _origName, _type, _dateKey, ...rec } = u; setData(prev => ({ ...prev, inbound: prev.inbound.map(i => i.name === (_origName || rec.name) ? rec : i) })); setToast(`${rec.name} 저장 완료`); setEditItem(null); }}
         onDelete={(item) => { setData(prev => ({ ...prev, inbound: prev.inbound.filter(i => i.name !== item.name) })); setEditItem(null); }}
       />
     )}
@@ -1021,10 +1022,11 @@ function Dashboard({ data, setData, setTab }) {
       <EditOutboundModal
         item={editItem}
         onClose={() => setEditItem(null)}
-        onSave={(u) => { const { _origName, ...rec } = u; setData(prev => ({ ...prev, outbound: prev.outbound.map(i => i.name === (_origName || rec.name) ? rec : i) })); setEditItem(null); }}
+        onSave={(u) => { const { _origName, _type, _dateKey, ...rec } = u; setData(prev => ({ ...prev, outbound: prev.outbound.map(i => i.name === (_origName || rec.name) ? rec : i) })); setToast(`${rec.name} 저장 완료`); setEditItem(null); }}
         onDelete={(item) => { setData(prev => ({ ...prev, outbound: prev.outbound.filter(i => i.name !== item.name) })); setEditItem(null); }}
       />
     )}
+    {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
     </>
   );
 }
@@ -1244,11 +1246,12 @@ function InboundView({ data, setData, onNew }) {
   const salesWeek = useMemoI(() => getCurrentSalesWeek(), []);
 
   const handleSaveEdit = (updated) => {
-    const next = data.inbound.map(i => i.name === updated.name ? updated : i);
-    setData({ ...data, inbound: next });
+    const { _origName, _type, _dateKey, ...record } = updated;
+    const matchName = _origName || record.name;
+    setData(prev => ({ ...prev, inbound: prev.inbound.map(i => i.name === matchName ? record : i) }));
   };
   const handleDeleteInbound = (item) => {
-    setData({ ...data, inbound: data.inbound.filter(i => i.name !== item.name) });
+    setData(prev => ({ ...prev, inbound: prev.inbound.filter(i => i.name !== item.name) }));
   };
 
   const filtered = useMemoI(() => {
@@ -1360,7 +1363,7 @@ function InboundView({ data, setData, onNew }) {
         })}
       </div>
 
-      {view === "kanban" ? <Kanban items={filtered} setData={setData} data={data} onEdit={setEditItem} salesWeek={salesWeek} /> : <ListView items={filtered} sort={sort} setSort={setSort} onEdit={setEditItem} salesWeek={salesWeek} />}
+      {view === "kanban" ? <Kanban items={filtered} setData={setData} data={data} onEdit={item => setEditItem({ ...item, _origName: item.name })} salesWeek={salesWeek} /> : <ListView items={filtered} sort={sort} setSort={setSort} onEdit={item => setEditItem({ ...item, _origName: item.name })} salesWeek={salesWeek} />}
 
       {editItem && <EditInboundModal item={editItem} onClose={() => setEditItem(null)} onSave={(u) => { handleSaveEdit(u); setEditItem(null); }} onDelete={(item) => { handleDeleteInbound(item); setEditItem(null); }} />}
     </div>
@@ -1554,7 +1557,7 @@ function OutboundView({ data, setData, onNew }) {
   const salesWeek = useMemoO(() => getCurrentSalesWeek(), []);
 
   const handleSaveEdit = (updated) => {
-    const { _origName, ...record } = updated;
+    const { _origName, _type, _dateKey, ...record } = updated;
     const matchName = _origName || record.name;
     setData(prev => ({
       ...prev,
