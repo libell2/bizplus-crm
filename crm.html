@@ -142,9 +142,9 @@ const OUTBOUND_STATUS_META = {
 const getCurrentSalesWeek = () => {
   const today = new Date();
   const dow = today.getDay(); // 0=Sun..6=Sat
-  const daysSinceThu = (dow + 3) % 7; // Thu=0,Fri=1,Sat=2,Sun=3,Mon=4,Tue=5,Wed=6
+  const daysSinceFri = (dow + 2) % 7; // Fri=0,Sat=1,Sun=2,Mon=3,Tue=4,Wed=5,Thu=6
   const start = new Date(today);
-  start.setDate(today.getDate() - daysSinceThu);
+  start.setDate(today.getDate() - daysSinceFri);
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
   const toIso = d => d.toISOString().slice(0, 10);
