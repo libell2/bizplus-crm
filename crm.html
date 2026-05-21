@@ -3146,22 +3146,68 @@ Object.assign(window, { AutomationView });
 const { useState: useStateA, useEffect: useEffectA } = React;
 
 function exportCRMToExcel(data) {
-  // JSON으로 내보내기 → export_excel.py 스크립트로 서식 완벽 보존 Excel 생성
-  const json = JSON.stringify({ inbound: data.inbound, outbound: data.outbound, deals: data.deals }, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `crm_data_${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  setTimeout(() => alert(
-    '✅ crm_data_XXXXXX.json 다운로드 완료\n\n' +
-    '엑셀 파일 생성 방법:\n' +
-    '1. 레포 폴더에서 터미널 열기\n' +
-    '2. pip install openpyxl  (최초 1회)\n' +
-    '3. python3 export_excel.py crm_data_XXXXXX.json'
-  ), 100);
+  if (typeof XLSX === 'undefined') {
+    alert('Excel 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+
+  const excelToDateStr = v => {
+    if (!v) return '';
+    if (typeof v === 'string') return v.slice(0, 10);
+    if (typeof v === 'number') {
+      const d = new Date((v - 25569) * 86400000);
+      return d.toISOString().slice(0, 10);
+    }
+    return '';
+  };
+
+  const wb = XLSX.utils.book_new();
+
+  // ── 인바운드 시트 ──────────────────────────────────
+  const inbHeaders = ['인입월', '인입일', '미팅일', '상태', '기업명', '임직원수', '지역', '서비스', '현황', '담당자', '연락처', '이메일', '담당 AE'];
+  const inbRows = (data.inbound || []).map(r => {
+    const dateStr = excelToDateStr(r.inflowDate);
+    return [
+      dateStr ? dateStr.slice(0, 7) : '',
+      dateStr,
+      excelToDateStr(r.meetingDate),
+      r.status || '',
+      r.name || '',
+      r.employees != null ? r.employees : '',
+      r.region || '',
+      r.service || '',
+      r.detail || '',
+      r.contactName || '',
+      r.phone || '',
+      r.email || '',
+      r.owner || '',
+    ];
+  });
+  const inbSheet = XLSX.utils.aoa_to_sheet([inbHeaders, ...inbRows]);
+  inbSheet['!cols'] = [8, 12, 12, 10, 18, 8, 10, 12, 32, 14, 16, 24, 8].map(w => ({ wch: w }));
+  XLSX.utils.book_append_sheet(wb, inbSheet, '인바운드관리');
+
+  // ── 아웃바운드 시트 ────────────────────────────────
+  const outHeaders = ['기업명', '임직원수', '지역', '마지막 업데이트', '미팅일자', '서비스', '현황', '담당자', '연락처', '이메일', '비고'];
+  const outRows = (data.outbound || []).map(r => [
+    r.name || '',
+    r.employees != null ? r.employees : '',
+    r.region || '',
+    r.lastUpdate || '',
+    excelToDateStr(r.meetingDate),
+    r.service || '',
+    r.detail || '',
+    r.contactName || '',
+    r.phone || '',
+    r.email || '',
+    r.note || '',
+  ]);
+  const outSheet = XLSX.utils.aoa_to_sheet([outHeaders, ...outRows]);
+  outSheet['!cols'] = [18, 8, 10, 16, 12, 12, 32, 14, 16, 24, 22].map(w => ({ wch: w }));
+  XLSX.utils.book_append_sheet(wb, outSheet, '아웃바운드관리');
+
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  XLSX.writeFile(wb, `비즈플러스_CRM_${today}.xlsx`);
 }
 
 function App() {
@@ -3368,7 +3414,7 @@ function Header({ tab, data, onNewActivity, onSync, onExport }) {
           background: "var(--pos-soft)", color: "var(--pos)",
           border: "1px solid var(--pos)", padding: "8px 12px",
           borderRadius: 8, fontSize: 12.5, fontWeight: 500, cursor: "pointer",
-        }}>↓ JSON 내보내기</button>
+        }}>↓ 엑셀 내보내기</button>
         <button onClick={onSync} style={{
           background: "var(--bg-elev)", color: "var(--ink-2)",
           border: "1px solid var(--line)", padding: "8px 12px",
