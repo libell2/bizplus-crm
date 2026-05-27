@@ -1554,6 +1554,7 @@ function OutboundView({ data, setData, onNew }) {
   const [sort, setSort] = useStateO({ key: "lastUpdate", dir: "desc" });
   const [editItem, setEditItem] = useStateO(null);
   const [view, setView] = useStateO("list"); // list | kanban
+  const [toast, setToast] = useStateO(null);
   const salesWeek = useMemoO(() => getCurrentSalesWeek(), []);
 
   const handleSaveEdit = (updated) => {
@@ -1689,6 +1690,7 @@ function OutboundView({ data, setData, onNew }) {
                     <SortTh k="lastUpdate">마지막 업데이트</SortTh>
                     <SortTh k="contactName">담당자</SortTh>
                     <Tho>비고</Tho>
+                    <Tho></Tho>
                   </tr>
                 </thead>
                 <tbody>
@@ -1722,6 +1724,16 @@ function OutboundView({ data, setData, onNew }) {
                           ) : <span style={{ color: "var(--ink-4)" }}>—</span>}
                         </Tdo>
                         <Tdo><span style={{ color: "var(--ink-3)", fontSize: 12 }}>{r.note}</span></Tdo>
+                        <Tdo>
+                          <button onClick={e => {
+                            e.stopPropagation();
+                            const today = new Date().toISOString().slice(0, 10);
+                            setData(prev => ({ ...prev, outbound: prev.outbound.map(it => it.name === r.name ? { ...it, lastUpdate: today } : it) }));
+                            setToast(`${r.name} 업데이트 완료 — 대시보드에 반영됨`);
+                          }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, background: "var(--accent-soft)", color: "var(--accent)", border: "none", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
+                            업데이트
+                          </button>
+                        </Tdo>
                       </tr>
                     );
                   })}
@@ -1732,6 +1744,7 @@ function OutboundView({ data, setData, onNew }) {
         )
       }
       {editItem && <EditOutboundModal item={editItem} onClose={() => setEditItem(null)} onSave={(u) => { handleSaveEdit(u); setEditItem(null); }} onDelete={(item) => { handleDeleteOutbound(item); setEditItem(null); }} />}
+      {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
     </div>
   );
 }
@@ -1799,7 +1812,7 @@ function OutboundKanban({ items, data, setData, inferStatus, onEdit, salesWeek }
                         <button onClick={e => {
                           e.stopPropagation();
                           const today = new Date().toISOString().slice(0, 10);
-                          setData({ ...data, outbound: data.outbound.map(it => it.name === item.name ? { ...it, lastUpdate: today } : it) });
+                          setData(prev => ({ ...prev, outbound: prev.outbound.map(it => it.name === item.name ? { ...it, lastUpdate: today } : it) }));
                         }} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "var(--accent-soft)", color: "var(--accent)", border: "none", cursor: "pointer", fontWeight: 600 }}>
                           업데이트
                         </button>
