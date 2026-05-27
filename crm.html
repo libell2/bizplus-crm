@@ -418,6 +418,7 @@ const Sel = ({ value, onChange, options, ...rest }) => (
   <select value={value} onChange={e => onChange(e.target.value)} style={{
     border: "1px solid var(--line)", borderRadius: 7, padding: "8px 11px",
     fontSize: 13, fontFamily: "inherit", background: "var(--bg-elev)", cursor: "pointer",
+    width: "100%", boxSizing: "border-box",
   }} {...rest}>
     {options.map(o => <option key={o} value={o}>{o}</option>)}
   </select>
@@ -482,27 +483,27 @@ function NewInboundModal({ onClose, onSave }) {
       month: `${new Date().getMonth() + 1}월`,
       inflowDate: today, consultDate: today, meetingDate: "",
       inflowYear: String(new Date().getFullYear()),
-      ...f, employees: Number(f.employees) || 0,
+      ...f, employees: Number(f.employees) || 0, updatedAt: today,
     });
     onClose();
   };
   return (
     <Modal title="신규 인바운드 인입" onClose={onClose}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        <Field label="기업명" required><Input value={f.name} onChange={e => setF({...f, name: e.target.value})} placeholder="예: 한글과컴퓨터" /></Field>
-        <Field label="임직원수"><Input type="number" value={f.employees} onChange={e => setF({...f, employees: e.target.value})} /></Field>
-        <Field label="지역"><Input value={f.region} onChange={e => setF({...f, region: e.target.value})} placeholder="예: 강남" /></Field>
-        <Field label="서비스"><Sel value={f.service} onChange={v => setF({...f, service: v})} options={["복지", "식권", "식권금액형", "식권쿠폰형", "복지포인트", "상품권"]} /></Field>
-        <Field label="상태"><Sel value={f.status} onChange={v => setF({...f, status: v})} options={["검토중", "도입확정", "오픈", "보류", "실패"]} /></Field>
-        <Field label="담당자"><Sel value={f.owner} onChange={v => setF({...f, owner: v})} options={["이종민", "강동헌"]} /></Field>
+        <Field label="기업명" required><Input value={f.name} onChange={e => setF(prev => ({...prev, name: e.target.value}))} placeholder="예: 한글과컴퓨터" /></Field>
+        <Field label="임직원수"><Input type="number" value={f.employees} onChange={e => setF(prev => ({...prev, employees: e.target.value}))} /></Field>
+        <Field label="지역"><Input value={f.region} onChange={e => setF(prev => ({...prev, region: e.target.value}))} placeholder="예: 강남" /></Field>
+        <Field label="서비스"><Sel value={f.service} onChange={v => setF(prev => ({...prev, service: v}))} options={["복지", "식권", "식권금액형", "식권쿠폰형", "복지포인트", "상품권"]} /></Field>
+        <Field label="상태"><Sel value={f.status} onChange={v => setF(prev => ({...prev, status: v}))} options={["검토중", "도입확정", "오픈", "보류", "실패"]} /></Field>
+        <Field label="담당자"><Sel value={f.owner} onChange={v => setF(prev => ({...prev, owner: v}))} options={["이종민", "강동헌"]} /></Field>
       </div>
-      <Field label="컨택 이름/직급"><Input value={f.contactName} onChange={e => setF({...f, contactName: e.target.value})} /></Field>
+      <Field label="컨택 이름/직급"><Input value={f.contactName} onChange={e => setF(prev => ({...prev, contactName: e.target.value}))} /></Field>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        <Field label="연락처"><Input value={f.phone} onChange={e => setF({...f, phone: e.target.value})} placeholder="010-0000-0000" /></Field>
-        <Field label="이메일"><Input value={f.email} onChange={e => setF({...f, email: e.target.value})} /></Field>
+        <Field label="연락처"><Input value={f.phone} onChange={e => setF(prev => ({...prev, phone: e.target.value}))} placeholder="010-0000-0000" /></Field>
+        <Field label="이메일"><Input value={f.email} onChange={e => setF(prev => ({...prev, email: e.target.value}))} /></Field>
       </div>
-      <Field label="내용"><Textarea value={f.detail} onChange={e => setF({...f, detail: e.target.value})} placeholder="복지정책, 단가, 검토사항 등" /></Field>
-      <Field label="비고"><Input value={f.note} onChange={e => setF({...f, note: e.target.value})} /></Field>
+      <Field label="내용"><Textarea value={f.detail} onChange={e => setF(prev => ({...prev, detail: e.target.value}))} placeholder="복지정책, 단가, 검토사항 등" /></Field>
+      <Field label="비고"><Input value={f.note} onChange={e => setF(prev => ({...prev, note: e.target.value}))} /></Field>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12, paddingTop: 14, borderTop: "1px solid var(--line-soft)" }}>
         <GhostBtn onClick={onClose}>취소</GhostBtn>
         <PrimaryBtn onClick={submit}>추가</PrimaryBtn>
@@ -1384,8 +1385,7 @@ function Kanban({ items, setData, data, onEdit, salesWeek }) {
             onDragLeave={() => setDragOver(null)}
             onDrop={e => {
               const name = e.dataTransfer.getData("text/name");
-              const next = data.inbound.map(it => it.name === name ? { ...it, status: col, updatedAt: new Date().toISOString().slice(0, 10) } : it);
-              setData({ ...data, inbound: next });
+              setData(prev => ({ ...prev, inbound: prev.inbound.map(it => it.name === name ? { ...it, status: col, updatedAt: new Date().toISOString().slice(0, 10) } : it) }));
               setDragOver(null);
             }}
             style={{
@@ -1431,7 +1431,7 @@ function Kanban({ items, setData, data, onEdit, salesWeek }) {
                         <button onClick={e => {
                           e.stopPropagation();
                           const today = new Date().toISOString().slice(0, 10);
-                          setData({ ...data, inbound: data.inbound.map(it => it.name === item.name ? { ...it, updatedAt: today } : it) });
+                          setData(prev => ({ ...prev, inbound: prev.inbound.map(it => it.name === item.name ? { ...it, updatedAt: today } : it) }));
                         }} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "var(--accent-soft)", color: "var(--accent)", border: "none", cursor: "pointer", fontWeight: 600 }}>
                           업데이트
                         </button>
@@ -3272,15 +3272,15 @@ function App() {
   const summary = summarizeGoals(data.goals);
 
   const addInbound = (item) => {
-    setData({ ...data, inbound: [item, ...data.inbound] });
+    setData(prev => ({ ...prev, inbound: [item, ...prev.inbound] }));
     setToast(`${item.name} 인바운드 등록 완료`);
   };
   const addOutbound = (item) => {
-    setData({ ...data, outbound: [item, ...data.outbound] });
+    setData(prev => ({ ...prev, outbound: [item, ...prev.outbound] }));
     setToast(`${item.name} 아웃바운드 타겟 추가`);
   };
   const addDeal = (item) => {
-    setData({ ...data, deals: [item, ...data.deals] });
+    setData(prev => ({ ...prev, deals: [item, ...prev.deals] }));
     setToast(`${item.name} 오픈 딜 등록 완료`);
   };
 
